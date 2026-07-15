@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  /* Endfield 風の配色: 暗色の工業的パネル + イエローアクセント */
+  --color-ink: #0c0c0e;
+  --color-panel: #17171b;
+  --color-panel-2: #1f1f25;
+  --color-line: #2c2c34;
+  --color-line-strong: #43434e;
+  --color-ef-yellow: #ffd800;
+  --color-ef-yellow-dim: #b99e13;
+  --color-fg: #e8e8e4;
+  --color-fg-dim: #8f8f96;
+  --color-danger: #ff5d45;
+  --font-sans: "Noto Sans JP", sans-serif;
+}
+
+/* Endfield UI に多い「角を斜めに落とした」パネル形状 */
+.clip-corner {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 0.75rem) 0,
+    100% 0.75rem,
+    100% 100%,
+    0 100%
+  );
+}
+
+.clip-corner-sm {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 0.5rem) 0,
+    100% 0.5rem,
+    100% 100%,
+    0 100%
+  );
+}
