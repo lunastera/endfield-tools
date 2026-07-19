@@ -1,4 +1,4 @@
-import { type ActionTypeId, LAYOUT } from "./data";
+import { ACTION_TYPES, type ActionTypeId, LAYOUT } from "./data";
 
 export const TIMELINE_VERSION = 1 as const;
 
@@ -61,6 +61,35 @@ export function removeCharacter(
   return { ...state, characters, actions };
 }
 
+/**
+ * キャラ（列）を左右に組み替える。行動の col も新しい並びに合わせて振り直す。
+ */
+export function moveCharacter(
+  state: TimelineState,
+  from: number,
+  to: number,
+): TimelineState {
+  const len = state.characters.length;
+  if (from < 0 || from >= len) return state;
+  const clampedTo = Math.max(0, Math.min(to, len - 1));
+  if (from === clampedTo) return state;
+
+  const characters = [...state.characters];
+  const [ch] = characters.splice(from, 1);
+  characters.splice(clampedTo, 0, ch);
+
+  // 移動前の col を移動後の col に写像する。
+  const remap = (oldCol: number): number => {
+    if (oldCol === from) return clampedTo;
+    let c = oldCol;
+    if (oldCol > from) c -= 1; // from を抜いた分のずれ
+    if (c >= clampedTo) c += 1; // clampedTo に挿した分のずれ
+    return c;
+  };
+  const actions = state.actions.map((a) => ({ ...a, col: remap(a.col) }));
+  return { ...state, characters, actions };
+}
+
 export function addAction(
   state: TimelineState,
   col: number,
@@ -101,6 +130,26 @@ export function moveAction(
   return { ...state, actions };
 }
 
+/**
+ * 行動をドラッグ&ドロップで時系列の任意位置へ移動する。
+ * index は「その位置の直前に挿入する」ギャップ番号（0..length）。
+ */
+export function moveActionToIndex(
+  state: TimelineState,
+  id: string,
+  index: number,
+): TimelineState {
+  const from = state.actions.findIndex((a) => a.id === id);
+  if (from < 0) return state;
+  const clamped = Math.max(0, Math.min(index, state.actions.length));
+  const actions = [...state.actions];
+  const [item] = actions.splice(from, 1);
+  // 元の位置より後ろへ動かすときは、抜いた分だけ挿入先が前にずれる。
+  const target = clamped > from ? clamped - 1 : clamped;
+  actions.splice(target, 0, item);
+  return { ...state, actions };
+}
+
 /** 検証: 未知のキャラ id や範囲外の col を含まない正規化した state を返す */
 export function normalizeState(
   input: unknown,
@@ -135,7 +184,11 @@ export function normalizeState(
         .map((a) => ({
           id: nextId(),
           col: a.col as number,
-          type: a.type as ActionTypeId,
+          // 廃止・未知の種類（旧 "normal" など）は既定の戦技に寄せる。
+          type:
+            (a.type as string) in ACTION_TYPES
+              ? (a.type as ActionTypeId)
+              : "skill",
           label: typeof a.label === "string" ? a.label : "",
           note: typeof a.note === "string" ? a.note : undefined,
         }))

@@ -7,6 +7,8 @@ import {
   createEmptyState,
   deleteAction,
   moveAction,
+  moveActionToIndex,
+  moveCharacter,
   normalizeState,
   removeCharacter,
   updateAction,
@@ -27,6 +29,30 @@ describe("character selection", () => {
     let s = addCharacter(createEmptyState(), "mifu");
     s = addCharacter(s, "mifu");
     expect(s.characters).toEqual(["mifu"]);
+  });
+
+  it("moveCharacter で列を組み替え、行動の col も追従する", () => {
+    let s = createEmptyState();
+    for (const id of ["mifu", "ember", "tangtang"]) s = addCharacter(s, id);
+    s = addAction(s, 0); // mifu
+    s = addAction(s, 1); // ember
+    s = addAction(s, 2); // tangtang
+    const [mifuA, emberA, tangA] = s.actions.map((a) => a.id);
+
+    // mifu(0) を末尾(2)へ → [ember, tangtang, mifu]
+    const r = moveCharacter(s, 0, 2);
+    expect(r.characters).toEqual(["ember", "tangtang", "mifu"]);
+    const colOf = (id: string) => r.actions.find((a) => a.id === id)?.col;
+    expect(colOf(emberA)).toBe(0);
+    expect(colOf(tangA)).toBe(1);
+    expect(colOf(mifuA)).toBe(2);
+  });
+
+  it("moveCharacter は from===to や範囲外で何もしない", () => {
+    let s = createEmptyState();
+    for (const id of ["mifu", "ember"]) s = addCharacter(s, id);
+    expect(moveCharacter(s, 0, 0)).toBe(s);
+    expect(moveCharacter(s, 5, 0)).toBe(s);
   });
 
   it("キャラ削除でその列の行動が消え、後続の列インデックスが詰まる", () => {
@@ -69,6 +95,30 @@ describe("action editing", () => {
     s = moveAction(s, second, -1);
     expect(s.actions.map((a) => a.id)).toEqual([second, first]);
   });
+
+  it("moveActionToIndex で任意位置へ組み替えられる", () => {
+    let s = addCharacter(createEmptyState(), "mifu");
+    for (let i = 0; i < 4; i++) s = addAction(s, 0, "skill");
+    const [a, b, c, d] = s.actions.map((x) => x.id);
+
+    // b を末尾のギャップ(4)へ
+    let r = moveActionToIndex(s, b, 4);
+    expect(r.actions.map((x) => x.id)).toEqual([a, c, d, b]);
+
+    // d を先頭のギャップ(0)へ
+    r = moveActionToIndex(s, d, 0);
+    expect(r.actions.map((x) => x.id)).toEqual([d, a, b, c]);
+
+    // 同じ位置なら変化なし
+    r = moveActionToIndex(s, b, 1);
+    expect(r.actions.map((x) => x.id)).toEqual([a, b, c, d]);
+    r = moveActionToIndex(s, b, 2);
+    expect(r.actions.map((x) => x.id)).toEqual([a, b, c, d]);
+
+    // 範囲外の index はクランプされる
+    r = moveActionToIndex(s, a, 99);
+    expect(r.actions.map((x) => x.id)).toEqual([b, c, d, a]);
+  });
 });
 
 describe("normalizeState", () => {
@@ -98,6 +148,22 @@ describe("normalizeState", () => {
     );
     expect(restored?.characters).toEqual(["mifu", "ember"]);
     expect(restored?.actions).toHaveLength(1);
+  });
+
+  it("廃止・未知の種類は戦技に変換される", () => {
+    const restored = normalizeState(
+      {
+        title: "t",
+        characters: ["mifu"],
+        actions: [
+          { col: 0, type: "normal", label: "旧通常" },
+          { col: 0, type: "combo", label: "" },
+        ],
+      },
+      isKnown,
+    );
+    expect(restored?.actions[0].type).toBe("skill");
+    expect(restored?.actions[1].type).toBe("combo");
   });
 
   it("オブジェクト以外は null を返す", () => {

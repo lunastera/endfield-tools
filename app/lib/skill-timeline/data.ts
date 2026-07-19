@@ -238,7 +238,7 @@ export const CHARACTERS_BY_ID: ReadonlyMap<string, Character> = new Map(
   CHARACTERS.map((c) => [c.id, c]),
 );
 
-export type ActionTypeId = "normal" | "heavy" | "skill" | "combo" | "ultimate";
+export type ActionTypeId = "heavy" | "skill" | "combo" | "ultimate";
 
 export type ActionType = {
   id: ActionTypeId;
@@ -249,7 +249,6 @@ export type ActionType = {
 
 /** 行動の種類。色はゲーム内 UI に寄せる（戦技=緑・連携技=黄・重攻撃=白） */
 export const ACTION_TYPES: Record<ActionTypeId, ActionType> = {
-  normal: { id: "normal", name: "通常攻撃", short: "通常", color: "#9aa0ab" },
   heavy: { id: "heavy", name: "重攻撃", short: "重攻", color: "#d7dae0" },
   skill: { id: "skill", name: "戦技", short: "戦技", color: "#6cd08a" },
   combo: { id: "combo", name: "連携技", short: "連携", color: "#ffd23f" },
@@ -257,10 +256,9 @@ export const ACTION_TYPES: Record<ActionTypeId, ActionType> = {
 };
 
 export const ACTION_TYPE_ORDER: ActionTypeId[] = [
+  "heavy",
   "skill",
   "combo",
-  "heavy",
-  "normal",
   "ultimate",
 ];
 
@@ -268,7 +266,7 @@ export const ACTION_TYPE_ORDER: ActionTypeId[] = [
 export const LAYOUT = {
   gutter: 56,
   colWidth: 168,
-  rowHeight: 76,
+  rowHeight: 90,
   headerHeight: 108,
   maxCharacters: 4,
 } as const;

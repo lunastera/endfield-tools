@@ -11,6 +11,7 @@ type Props = {
   selected: string[];
   onAdd: (id: string) => void;
   onRemove: (col: number) => void;
+  onMove: (from: number, to: number) => void;
 };
 
 /** 属性色の小さなアバター（画像は使わずクラス名の頭文字を表示） */
@@ -38,10 +39,11 @@ function Avatar({
   );
 }
 
-export function CharacterPicker({ selected, onAdd, onRemove }: Props) {
+export function CharacterPicker({ selected, onAdd, onRemove, onMove }: Props) {
   const [query, setQuery] = useState("");
   // すでに編成済みなら初期状態は畳んでおく。
   const [expanded, setExpanded] = useState(() => selected.length === 0);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
   const isFull = selected.length >= LAYOUT.maxCharacters;
 
   // 最大人数に達したら自動で畳む（人数が変わった時だけ発火）。
@@ -104,7 +106,31 @@ export function CharacterPicker({ selected, onAdd, onRemove }: Props) {
           return (
             <li
               key={id}
-              className="clip-corner-sm flex items-center gap-2 border border-ef-yellow-dim bg-panel-2 py-1 pr-1 pl-2"
+              draggable
+              onDragStart={(e) => {
+                setDragFrom(col);
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", String(col));
+              }}
+              onDragEnd={() => setDragFrom(null)}
+              onDragOver={
+                dragFrom !== null ? (e) => e.preventDefault() : undefined
+              }
+              onDrop={
+                dragFrom !== null
+                  ? (e) => {
+                      e.preventDefault();
+                      onMove(dragFrom, col);
+                      setDragFrom(null);
+                    }
+                  : undefined
+              }
+              title="ドラッグで左右に並べ替え"
+              className={`clip-corner-sm flex cursor-grab items-center gap-2 border bg-panel-2 py-1 pr-1 pl-2 active:cursor-grabbing ${
+                dragFrom === col
+                  ? "border-ef-yellow opacity-50"
+                  : "border-ef-yellow-dim"
+              }`}
             >
               <span className="text-xs text-fg-dim tabular-nums">
                 {col + 1}

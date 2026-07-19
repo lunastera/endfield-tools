@@ -20,6 +20,9 @@
 
 - ヘッダー（キャラ部分）はスクロール追従（`position: sticky`）
 - 行動ブロックは種類ごとに色分けし、連続する行動を接続線（依存/フロー）でつなぐ
+- 行動ノードはグリップからドラッグ&ドロップで時系列を組み替え可能（種類・担当はセレクトで選択）
+- 編成（キャラ列）もドラッグ&ドロップで左右に組み替え可能（行動の担当も追従）
+- 「編集」モードと視認性重視の「プレビュー」モードを切り替えられる
 - 画面表示と PNG 出力で同じ座標系を使う（[app/lib/skill-timeline/timeline.ts](app/lib/skill-timeline/timeline.ts) の `LAYOUT`）
 - タイムラインを JSON・PNG・テキストでエクスポート（[app/lib/skill-timeline/export.ts](app/lib/skill-timeline/export.ts)）
 - 編集内容は localStorage に自動保存

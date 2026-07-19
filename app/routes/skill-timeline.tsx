@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { CharacterPicker } from "~/components/skill-timeline/CharacterPicker";
-import { TimelineEditor } from "~/components/skill-timeline/TimelineEditor";
+import {
+  TimelineEditor,
+  type TimelineMode,
+} from "~/components/skill-timeline/TimelineEditor";
 import { CHARACTERS_BY_ID } from "~/lib/skill-timeline/data";
 import {
   downloadBlob,
@@ -16,7 +19,8 @@ import {
   addCharacter,
   createEmptyState,
   deleteAction,
-  moveAction,
+  moveActionToIndex,
+  moveCharacter,
   normalizeState,
   removeCharacter,
   type TimelineState,
@@ -60,6 +64,7 @@ function loadInitialState(): TimelineState {
 export default function SkillTimeline() {
   const [state, setState] = useState<TimelineState>(loadInitialState);
   const [pngStatus, setPngStatus] = useState<string | null>(null);
+  const [mode, setMode] = useState<TimelineMode>("edit");
 
   // 変更を localStorage に保存する。
   useEffect(() => {
@@ -108,25 +113,58 @@ export default function SkillTimeline() {
       </header>
 
       <div className="grid gap-6">
-        <CharacterPicker
-          selected={state.characters}
-          onAdd={(id) => setState((s) => addCharacter(s, id))}
-          onRemove={(col) => setState((s) => removeCharacter(s, col))}
-        />
+        {mode === "edit" && (
+          <CharacterPicker
+            selected={state.characters}
+            onAdd={(id) => setState((s) => addCharacter(s, id))}
+            onRemove={(col) => setState((s) => removeCharacter(s, col))}
+            onMove={(from, to) => setState((s) => moveCharacter(s, from, to))}
+          />
+        )}
 
         {state.characters.length > 0 && (
           <div className="grid gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-sm">
-                <span className="text-fg-dim">タイトル</span>
-                <input
-                  value={state.title}
-                  onChange={(e) =>
-                    setState((s) => ({ ...s, title: e.target.value }))
-                  }
-                  className="clip-corner-sm border border-line bg-ink px-3 py-1 outline-none focus:border-ef-yellow-dim"
-                />
-              </label>
+              {/* 編集 / プレビュー 切り替え */}
+              {/* biome-ignore lint/a11y/useSemanticElements: ボタン群のグループ化ラベル */}
+              <div
+                role="group"
+                aria-label="表示モード"
+                className="clip-corner-sm flex overflow-hidden border border-line"
+              >
+                {(["edit", "preview"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
+                    aria-pressed={mode === m}
+                    className={`px-3 py-1 text-sm transition-colors ${
+                      mode === m
+                        ? "bg-ef-yellow text-ink font-bold"
+                        : "bg-panel-2 text-fg-dim hover:text-fg"
+                    }`}
+                  >
+                    {m === "edit" ? "編集" : "プレビュー"}
+                  </button>
+                ))}
+              </div>
+
+              {mode === "edit" ? (
+                <label className="flex items-center gap-2 text-sm">
+                  <span className="text-fg-dim">タイトル</span>
+                  <input
+                    value={state.title}
+                    onChange={(e) =>
+                      setState((s) => ({ ...s, title: e.target.value }))
+                    }
+                    className="clip-corner-sm border border-line bg-ink px-3 py-1 outline-none focus:border-ef-yellow-dim"
+                  />
+                </label>
+              ) : (
+                <h2 className="text-lg font-bold">
+                  {state.title || "スキル回し"}
+                </h2>
+              )}
 
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 <span className="text-xs text-fg-dim">エクスポート:</span>
@@ -172,32 +210,38 @@ export default function SkillTimeline() {
 
             <TimelineEditor
               state={state}
+              mode={mode}
               onAddAction={(col) => setState((s) => addAction(s, col))}
               onUpdateAction={(id, patch) =>
                 setState((s) => updateAction(s, id, patch))
               }
               onDeleteAction={(id) => setState((s) => deleteAction(s, id))}
-              onMoveAction={(id, dir) =>
-                setState((s) => moveAction(s, id, dir))
+              onReorder={(id, index) =>
+                setState((s) => moveActionToIndex(s, id, index))
+              }
+              onMoveCharacter={(from, to) =>
+                setState((s) => moveCharacter(s, from, to))
               }
               onRemoveCharacter={(col) =>
                 setState((s) => removeCharacter(s, col))
               }
             />
 
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm("タイムラインをすべてリセットしますか？")) {
-                    setState(createEmptyState());
-                  }
-                }}
-                className="text-xs text-fg-dim underline-offset-2 hover:text-danger hover:underline"
-              >
-                すべてリセット
-              </button>
-            </div>
+            {mode === "edit" && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm("タイムラインをすべてリセットしますか？")) {
+                      setState(createEmptyState());
+                    }
+                  }}
+                  className="text-xs text-fg-dim underline-offset-2 hover:text-danger hover:underline"
+                >
+                  すべてリセット
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
