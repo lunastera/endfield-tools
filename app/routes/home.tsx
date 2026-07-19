@@ -51,6 +51,28 @@ export default function Home() {
             </p>
           </Link>
         </li>
+        <li>
+          <Link
+            to="/skill-timeline"
+            className="clip-corner group block border border-line bg-panel p-5 transition-colors hover:border-ef-yellow"
+          >
+            <h2 className="flex items-center gap-2 text-xl font-bold">
+              <span aria-hidden className="text-ef-yellow text-sm">
+                ◆
+              </span>
+              スキル回しタイムラインツール
+              <span
+                aria-hidden
+                className="ml-auto text-fg-dim transition-colors group-hover:text-ef-yellow"
+              >
+                →
+              </span>
+            </h2>
+            <p className="mt-2 text-sm text-fg-dim">
+              最大4キャラのスキル回しをタイムラインで組み立て、JSON・PNG・テキストでエクスポートできます。
+            </p>
+          </Link>
+        </li>
       </ul>
 
       <footer className="mt-16 border-t border-line pt-4 text-xs text-fg-dim">

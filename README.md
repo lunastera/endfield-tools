@@ -14,6 +14,17 @@
 - 効果の選択上限はゲーム内に合わせる（基礎効果3・付加効果1・スキル効果3）
 - 対応データが未確認の活性点は「データ未登録」として表示する
 
+### スキル回しタイムラインツール (`/skill-timeline`)
+
+最大4キャラを選び、戦技・連携技などの行動を上から順に並べてスキル回しを組み立てるツール。
+
+- ヘッダー（キャラ部分）はスクロール追従（`position: sticky`）
+- 行動ブロックは種類ごとに色分けし、連続する行動を接続線（依存/フロー）でつなぐ
+- 画面表示と PNG 出力で同じ座標系を使う（[app/lib/skill-timeline/timeline.ts](app/lib/skill-timeline/timeline.ts) の `LAYOUT`）
+- タイムラインを JSON・PNG・テキストでエクスポート（[app/lib/skill-timeline/export.ts](app/lib/skill-timeline/export.ts)）
+- 編集内容は localStorage に自動保存
+- キャラクター一覧は[白wiki「オペレーター一覧」](https://arknights-endfield.wikiru.jp/?%E3%82%AA%E3%83%9A%E3%83%AC%E3%83%BC%E3%82%BF%E3%83%BC%E4%B8%80%E8%A6%A7)を出典に [app/lib/skill-timeline/data.ts](app/lib/skill-timeline/data.ts) で手動管理
+
 ## 技術スタック
 
 - [React Router v8](https://reactrouter.com/)（SPA モード）
