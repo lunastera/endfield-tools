@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CHARACTERS,
   type Character,
@@ -40,7 +40,14 @@ function Avatar({
 
 export function CharacterPicker({ selected, onAdd, onRemove }: Props) {
   const [query, setQuery] = useState("");
+  // すでに編成済みなら初期状態は畳んでおく。
+  const [expanded, setExpanded] = useState(() => selected.length === 0);
   const isFull = selected.length >= LAYOUT.maxCharacters;
+
+  // 最大人数に達したら自動で畳む（人数が変わった時だけ発火）。
+  useEffect(() => {
+    if (selected.length >= LAYOUT.maxCharacters) setExpanded(false);
+  }, [selected.length]);
 
   const groups = useMemo(() => {
     const q = query.trim();
@@ -54,21 +61,38 @@ export function CharacterPicker({ selected, onAdd, onRemove }: Props) {
   return (
     <div className="clip-corner border border-line bg-panel/60 p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 className="font-bold tracking-widest">編成を選択</h2>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-controls="character-roster"
+          className="flex items-center gap-2 font-bold tracking-widest"
+        >
+          <span
+            aria-hidden
+            className="inline-block text-ef-yellow text-xs transition-transform"
+            style={{ transform: expanded ? "rotate(90deg)" : "none" }}
+          >
+            ▶
+          </span>
+          編成を選択
+        </button>
         <span className="text-xs text-fg-dim">
           {selected.length} / {LAYOUT.maxCharacters}
         </span>
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="キャラ名で絞り込み"
-          className="clip-corner-sm ml-auto border border-line bg-ink px-3 py-1 text-sm outline-none placeholder:text-fg-dim/60 focus:border-ef-yellow-dim"
-        />
+        {expanded && (
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="キャラ名で絞り込み"
+            className="clip-corner-sm ml-auto border border-line bg-ink px-3 py-1 text-sm outline-none placeholder:text-fg-dim/60 focus:border-ef-yellow-dim"
+          />
+        )}
       </div>
 
-      {/* 選択中の編成 */}
-      <ul className="mb-4 flex flex-wrap gap-2">
+      {/* 選択中の編成（畳んでも表示する） */}
+      <ul className="flex flex-wrap gap-2">
         {selected.length === 0 && (
           <li className="text-sm text-fg-dim">
             下からキャラを選んで編成に追加してください。
@@ -101,7 +125,7 @@ export function CharacterPicker({ selected, onAdd, onRemove }: Props) {
       </ul>
 
       {/* ロスター */}
-      <div className="grid gap-3">
+      <div id="character-roster" hidden={!expanded} className="mt-4 grid gap-3">
         {groups.map(
           (group) =>
             group.characters.length > 0 && (
