@@ -27,8 +27,7 @@ export function toJson(state: TimelineState): string {
       actions: state.actions.map((a) => ({
         col: a.col,
         type: a.type,
-        label: a.label,
-        ...(a.note ? { note: a.note } : {}),
+        note: a.note,
       })),
     },
     null,
@@ -50,10 +49,9 @@ export function toText(state: TimelineState): string {
     state.actions.forEach((a, i) => {
       const who = charName(state.characters[a.col] ?? "");
       const type = ACTION_TYPES[a.type]?.name ?? a.type;
-      const label = a.label ? ` ${a.label}` : "";
-      const note = a.note ? `  # ${a.note}` : "";
+      const memo = a.note ? ` ${a.note}` : "";
       const step = String(i + 1).padStart(2, " ");
-      lines.push(`${step}. [${who}] ${type}${label}${note}`);
+      lines.push(`${step}. [${who}] ${type}${memo}`);
     });
   }
   return `${lines.join("\n")}\n`;
@@ -155,10 +153,10 @@ export function toSvg(state: TimelineState): string {
         type.name,
       )}</text>`,
     );
-    if (a.label) {
+    if (a.note) {
       parts.push(
         `<text x="${bx + 14}" y="${by + 41}" fill="#e8e8e4" font-size="13">${escapeXml(
-          a.label,
+          a.note,
         )}</text>`,
       );
     }

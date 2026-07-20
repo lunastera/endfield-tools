@@ -7,6 +7,7 @@ import {
   createEmptyState,
   deleteAction,
   moveAction,
+  moveActionTo,
   moveActionToIndex,
   moveCharacter,
   normalizeState,
@@ -77,8 +78,8 @@ describe("action editing", () => {
     let s = addCharacter(createEmptyState(), "mifu");
     s = addAction(s, 0, "skill");
     const id = s.actions[0].id;
-    s = updateAction(s, id, { label: "①", type: "combo" });
-    expect(s.actions[0].label).toBe("①");
+    s = updateAction(s, id, { note: "①", type: "combo" });
+    expect(s.actions[0].note).toBe("①");
     expect(s.actions[0].type).toBe("combo");
     s = deleteAction(s, id);
     expect(s.actions).toHaveLength(0);
@@ -94,6 +95,23 @@ describe("action editing", () => {
     // 端を超える移動は無視
     s = moveAction(s, second, -1);
     expect(s.actions.map((a) => a.id)).toEqual([second, first]);
+  });
+
+  it("moveActionTo で時系列と担当列を同時に変更できる", () => {
+    let s = createEmptyState();
+    for (const id of ["mifu", "ember", "tangtang"]) s = addCharacter(s, id);
+    s = addAction(s, 0); // 0: mifu
+    s = addAction(s, 0); // 1: mifu
+    const [a, b] = s.actions.map((x) => x.id);
+
+    // b を先頭(index0)かつ col2(tangtang)へ
+    const r = moveActionTo(s, b, 0, 2);
+    expect(r.actions.map((x) => x.id)).toEqual([b, a]);
+    expect(r.actions.find((x) => x.id === b)?.col).toBe(2);
+
+    // col は範囲内にクランプされる
+    const r2 = moveActionTo(s, a, 0, 99);
+    expect(r2.actions.find((x) => x.id === a)?.col).toBe(2);
   });
 
   it("moveActionToIndex で任意位置へ組み替えられる", () => {
@@ -126,12 +144,12 @@ describe("normalizeState", () => {
     let s = addCharacter(createEmptyState(), "mifu");
     s = addCharacter(s, "ember");
     s = addAction(s, 1, "skill");
-    s = updateAction(s, s.actions[0].id, { label: "SP60" });
+    s = updateAction(s, s.actions[0].id, { note: "SP60" });
 
     const restored = normalizeState(JSON.parse(toJson(s)), isKnown);
     expect(restored?.characters).toEqual(["mifu", "ember"]);
     expect(restored?.actions[0].col).toBe(1);
-    expect(restored?.actions[0].label).toBe("SP60");
+    expect(restored?.actions[0].note).toBe("SP60");
   });
 
   it("未知のキャラや範囲外の col を除去する", () => {
@@ -140,8 +158,8 @@ describe("normalizeState", () => {
         title: "t",
         characters: ["mifu", "unknown-x", "ember"],
         actions: [
-          { col: 0, type: "skill", label: "" },
-          { col: 5, type: "skill", label: "" }, // 範囲外
+          { col: 0, type: "skill", note: "" },
+          { col: 5, type: "skill", note: "" }, // 範囲外
         ],
       },
       isKnown,
@@ -150,19 +168,21 @@ describe("normalizeState", () => {
     expect(restored?.actions).toHaveLength(1);
   });
 
-  it("廃止・未知の種類は戦技に変換される", () => {
+  it("廃止・未知の種類は戦技に変換され、旧 label は note に引き継がれる", () => {
     const restored = normalizeState(
       {
         title: "t",
         characters: ["mifu"],
         actions: [
           { col: 0, type: "normal", label: "旧通常" },
-          { col: 0, type: "combo", label: "" },
+          { col: 0, type: "combo", note: "" },
         ],
       },
       isKnown,
     );
     expect(restored?.actions[0].type).toBe("skill");
+    // 旧フィールド label はメモ(note)として引き継がれる
+    expect(restored?.actions[0].note).toBe("旧通常");
     expect(restored?.actions[1].type).toBe("combo");
   });
 
@@ -176,7 +196,7 @@ describe("text / svg export", () => {
   it("テキストに編成と行動が含まれる", () => {
     let s = addCharacter(createEmptyState(), "mifu");
     s = addAction(s, 0, "skill");
-    s = updateAction(s, s.actions[0].id, { label: "①" });
+    s = updateAction(s, s.actions[0].id, { note: "①" });
     const text = toText(s);
     expect(text).toContain("ミ・フ");
     expect(text).toContain("戦技 ①");
@@ -194,7 +214,7 @@ describe("text / svg export", () => {
   it("SVG の特殊文字がエスケープされる", () => {
     let s = addCharacter(createEmptyState(), "mifu");
     s = addAction(s, 0, "skill");
-    s = updateAction(s, s.actions[0].id, { label: "A & B <c>" });
+    s = updateAction(s, s.actions[0].id, { note: "A & B <c>" });
     const svg = toSvg(s);
     expect(svg).toContain("A &amp; B &lt;c&gt;");
   });

@@ -7,9 +7,8 @@ export type TimelineAction = {
   /** characters 配列内のインデックス（どのキャラの列か） */
   col: number;
   type: ActionTypeId;
-  /** 任意のラベル（スキル名・SP・番号など） */
-  label: string;
-  note?: string;
+  /** 任意のメモ（スキル名・SP・番号など） */
+  note: string;
 };
 
 export type TimelineState = {
@@ -96,7 +95,7 @@ export function addAction(
   type: ActionTypeId = "skill",
 ): TimelineState {
   if (col < 0 || col >= state.characters.length) return state;
-  const action: TimelineAction = { id: nextId(), col, type, label: "" };
+  const action: TimelineAction = { id: nextId(), col, type, note: "" };
   return { ...state, actions: [...state.actions, action] };
 }
 
@@ -150,6 +149,26 @@ export function moveActionToIndex(
   return { ...state, actions };
 }
 
+/**
+ * 行動を時系列の任意位置へ移動し、同時に担当列（col）も変更する。
+ * ノードを別キャラの列へドラッグ&ドロップするときに使う。
+ */
+export function moveActionTo(
+  state: TimelineState,
+  id: string,
+  index: number,
+  col: number,
+): TimelineState {
+  const reordered = moveActionToIndex(state, id, index);
+  const clampedCol = Math.max(0, Math.min(col, state.characters.length - 1));
+  return {
+    ...reordered,
+    actions: reordered.actions.map((a) =>
+      a.id === id ? { ...a, col: clampedCol } : a,
+    ),
+  };
+}
+
 /** 検証: 未知のキャラ id や範囲外の col を含まない正規化した state を返す */
 export function normalizeState(
   input: unknown,
@@ -189,8 +208,13 @@ export function normalizeState(
             (a.type as string) in ACTION_TYPES
               ? (a.type as ActionTypeId)
               : "skill",
-          label: typeof a.label === "string" ? a.label : "",
-          note: typeof a.note === "string" ? a.note : undefined,
+          // 旧 "label" フィールドは "note" として引き継ぐ。
+          note:
+            typeof a.note === "string"
+              ? a.note
+              : typeof a.label === "string"
+                ? a.label
+                : "",
         }))
     : [];
   return {

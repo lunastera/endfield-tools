@@ -19,7 +19,7 @@ import {
   addCharacter,
   createEmptyState,
   deleteAction,
-  moveActionToIndex,
+  moveActionTo,
   moveCharacter,
   normalizeState,
   removeCharacter,
@@ -216,8 +216,8 @@ export default function SkillTimeline() {
                 setState((s) => updateAction(s, id, patch))
               }
               onDeleteAction={(id) => setState((s) => deleteAction(s, id))}
-              onReorder={(id, index) =>
-                setState((s) => moveActionToIndex(s, id, index))
+              onReorder={(id, index, col) =>
+                setState((s) => moveActionTo(s, id, index, col))
               }
               onMoveCharacter={(from, to) =>
                 setState((s) => moveCharacter(s, from, to))

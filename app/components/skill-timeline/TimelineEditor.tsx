@@ -27,18 +27,17 @@ type Props = {
     patch: Partial<Omit<TimelineAction, "id">>,
   ) => void;
   onDeleteAction: (id: string) => void;
-  onReorder: (id: string, index: number) => void;
+  onReorder: (id: string, index: number, col: number) => void;
   onMoveCharacter: (from: number, to: number) => void;
   onRemoveCharacter: (col: number) => void;
 };
 
 const { gutter, colWidth, rowHeight, headerHeight } = LAYOUT;
 
-/** 編集用の行動ブロック（種類・ラベル・担当・削除を操作でき、ブロックごとD&D可能） */
+/** 編集用の行動ブロック（種類・メモ・削除を操作でき、ブロックごとD&D可能） */
 function EditableBlock({
   action,
   index,
-  characters,
   onUpdate,
   onDelete,
   onDragStart,
@@ -47,7 +46,6 @@ function EditableBlock({
 }: {
   action: TimelineAction;
   index: number;
-  characters: string[];
   onUpdate: Props["onUpdateAction"];
   onDelete: Props["onDeleteAction"];
   onDragStart: (id: string, e: DragEvent) => void;
@@ -109,28 +107,12 @@ function EditableBlock({
             ✕
           </button>
         </div>
-        <div className="flex items-center gap-1">
-          <select
-            value={action.col}
-            onChange={(e) =>
-              onUpdate(action.id, { col: Number(e.target.value) })
-            }
-            title="担当キャラ"
-            className="min-w-0 flex-1 rounded border border-line bg-ink px-1 py-0.5 text-[11px] outline-none focus:border-ef-yellow-dim"
-          >
-            {characters.map((id, c) => (
-              <option key={id} value={c}>
-                {CHARACTERS_BY_ID.get(id)?.name ?? id}
-              </option>
-            ))}
-          </select>
-          <input
-            value={action.label}
-            onChange={(e) => onUpdate(action.id, { label: e.target.value })}
-            placeholder="ラベル"
-            className="w-16 min-w-0 flex-1 rounded border border-line bg-ink px-1 py-0.5 text-[11px] outline-none placeholder:text-fg-dim/50 focus:border-ef-yellow-dim"
-          />
-        </div>
+        <input
+          value={action.note}
+          onChange={(e) => onUpdate(action.id, { note: e.target.value })}
+          placeholder="メモ"
+          className="w-full min-w-0 rounded border border-line bg-ink px-1 py-0.5 text-[11px] outline-none placeholder:text-fg-dim/50 focus:border-ef-yellow-dim"
+        />
       </div>
     </div>
   );
@@ -166,8 +148,8 @@ function PreviewBlock({
       >
         {type.name}
       </div>
-      {action.label && (
-        <div className="truncate text-sm leading-snug">{action.label}</div>
+      {action.note && (
+        <div className="truncate text-sm leading-snug">{action.note}</div>
       )}
       {charName && (
         <div className="truncate text-[10px] text-fg-dim">{charName}</div>
@@ -192,9 +174,10 @@ export function TimelineEditor({
   const isEdit = mode === "edit";
 
   const bodyRef = useRef<HTMLDivElement>(null);
-  // 行動ノードの D&D
+  // 行動ノードの D&D（時系列 index と担当列 col）
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [dropCol, setDropCol] = useState<number | null>(null);
   // キャラ列の D&D
   const [colDragFrom, setColDragFrom] = useState<number | null>(null);
   const [colDropTo, setColDropTo] = useState<number | null>(null);
@@ -209,6 +192,13 @@ export function TimelineEditor({
     );
   };
 
+  const computeDropCol = (clientX: number): number => {
+    const rect = bodyRef.current?.getBoundingClientRect();
+    if (!rect) return 0;
+    const x = clientX - rect.left - gutter;
+    return Math.max(0, Math.min(Math.floor(x / colWidth), cols - 1));
+  };
+
   const startNodeDrag = (id: string, e: DragEvent) => {
     setDragId(id);
     e.dataTransfer.effectAllowed = "move";
@@ -217,6 +207,7 @@ export function TimelineEditor({
   const endNodeDrag = () => {
     setDragId(null);
     setDropIndex(null);
+    setDropCol(null);
   };
 
   const startColDrag = (col: number, e: DragEvent) => {
@@ -319,6 +310,7 @@ export function TimelineEditor({
               ? (e) => {
                   e.preventDefault();
                   setDropIndex(computeDropIndex(e.clientY));
+                  setDropCol(computeDropCol(e.clientX));
                 }
               : undefined
           }
@@ -326,7 +318,11 @@ export function TimelineEditor({
             isEdit && dragId
               ? (e) => {
                   e.preventDefault();
-                  onReorder(dragId, computeDropIndex(e.clientY));
+                  onReorder(
+                    dragId,
+                    computeDropIndex(e.clientY),
+                    computeDropCol(e.clientX),
+                  );
                   endNodeDrag();
                 }
               : undefined
@@ -354,7 +350,15 @@ export function TimelineEditor({
             })}
           </svg>
 
-          {/* ドロップ位置インジケータ */}
+          {/* ドロップ先の列ハイライト */}
+          {isEdit && dragId && dropCol !== null && (
+            <div
+              className="pointer-events-none absolute top-0 bottom-0 border-x border-ef-yellow/50 bg-ef-yellow/5"
+              style={{ left: gutter + dropCol * colWidth, width: colWidth }}
+            />
+          )}
+
+          {/* ドロップ位置インジケータ（時系列） */}
           {isEdit && dragId && dropIndex !== null && (
             <div
               className="pointer-events-none absolute h-0.5 bg-ef-yellow"
@@ -394,7 +398,6 @@ export function TimelineEditor({
                 key={a.id}
                 action={a}
                 index={i}
-                characters={state.characters}
                 onUpdate={onUpdateAction}
                 onDelete={onDeleteAction}
                 onDragStart={startNodeDrag}
