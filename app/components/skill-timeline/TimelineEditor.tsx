@@ -176,6 +176,8 @@ export function TimelineEditor({
   const bodyRef = useRef<HTMLDivElement>(null);
   // 行動ノードの D&D（時系列 index と担当列 col）
   const [dragId, setDragId] = useState<string | null>(null);
+  // "time": 時系列のみ（行番号ガター）, "full": 時系列＋列（ノードのグリップ）
+  const [dragMode, setDragMode] = useState<"time" | "full">("full");
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [dropCol, setDropCol] = useState<number | null>(null);
   // キャラ列の D&D
@@ -199,11 +201,15 @@ export function TimelineEditor({
     return Math.max(0, Math.min(Math.floor(x / colWidth), cols - 1));
   };
 
-  const startNodeDrag = (id: string, e: DragEvent) => {
+  const startNodeDrag = (id: string, e: DragEvent, mode: "time" | "full") => {
     setDragId(id);
+    setDragMode(mode);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", id);
   };
+  // ノードのグリップからのドラッグ（時系列＋列移動）
+  const startFullDrag = (id: string, e: DragEvent) =>
+    startNodeDrag(id, e, "full");
   const endNodeDrag = () => {
     setDragId(null);
     setDropIndex(null);
@@ -310,7 +316,10 @@ export function TimelineEditor({
               ? (e) => {
                   e.preventDefault();
                   setDropIndex(computeDropIndex(e.clientY));
-                  setDropCol(computeDropCol(e.clientX));
+                  // 列移動は "full"（ノードのグリップ）ドラッグのときだけ。
+                  setDropCol(
+                    dragMode === "full" ? computeDropCol(e.clientX) : null,
+                  );
                 }
               : undefined
           }
@@ -318,11 +327,13 @@ export function TimelineEditor({
             isEdit && dragId
               ? (e) => {
                   e.preventDefault();
-                  onReorder(
-                    dragId,
-                    computeDropIndex(e.clientY),
-                    computeDropCol(e.clientX),
-                  );
+                  const currentCol =
+                    state.actions.find((a) => a.id === dragId)?.col ?? 0;
+                  const col =
+                    dragMode === "full"
+                      ? computeDropCol(e.clientX)
+                      : currentCol;
+                  onReorder(dragId, computeDropIndex(e.clientY), col);
                   endNodeDrag();
                 }
               : undefined
@@ -366,11 +377,20 @@ export function TimelineEditor({
             />
           )}
 
-          {/* 行番号 */}
+          {/* 行番号（ドラッグで時系列の並べ替え。列は変えない） */}
           {state.actions.map((a, i) => (
+            // biome-ignore lint/a11y/noStaticElementInteractions: 時系列 D&D 用のハンドル
             <div
               key={a.id}
-              className="absolute flex items-center justify-center"
+              draggable={isEdit}
+              onDragStart={
+                isEdit ? (e) => startNodeDrag(a.id, e, "time") : undefined
+              }
+              onDragEnd={isEdit ? endNodeDrag : undefined}
+              title={isEdit ? "ドラッグで並べ替え" : undefined}
+              className={`absolute flex flex-col items-center justify-center gap-1 ${
+                isEdit ? "cursor-grab active:cursor-grabbing" : ""
+              }`}
               style={{
                 left: 0,
                 top: i * rowHeight,
@@ -379,6 +399,11 @@ export function TimelineEditor({
               }}
             >
               <span className="text-xs text-fg-dim tabular-nums">{i + 1}</span>
+              {isEdit && (
+                <span aria-hidden className="leading-none text-fg-dim/70">
+                  ⠿
+                </span>
+              )}
             </div>
           ))}
 
@@ -400,7 +425,7 @@ export function TimelineEditor({
                 index={i}
                 onUpdate={onUpdateAction}
                 onDelete={onDeleteAction}
-                onDragStart={startNodeDrag}
+                onDragStart={startFullDrag}
                 onDragEnd={endNodeDrag}
                 dimmed={dragId === a.id}
               />
