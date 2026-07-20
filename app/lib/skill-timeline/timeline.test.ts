@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CHARACTERS_BY_ID } from "./data";
-import { toJson, toSvg, toText } from "./export";
+import { fromText, parseImport, toJson, toSvg, toText } from "./export";
 import {
   addAction,
   addCharacter,
@@ -217,5 +217,41 @@ describe("text / svg export", () => {
     s = updateAction(s, s.actions[0].id, { note: "A & B <c>" });
     const svg = toSvg(s);
     expect(svg).toContain("A &amp; B &lt;c&gt;");
+  });
+});
+
+describe("import", () => {
+  const isKnown = (id: string) => CHARACTERS_BY_ID.has(id);
+
+  it("テキストを往復して同じ内容に戻せる", () => {
+    let s = addCharacter(createEmptyState(), "mifu");
+    s = addCharacter(s, "ember");
+    s = addAction(s, 0, "skill");
+    s = updateAction(s, s.actions[0].id, { note: "開幕" });
+    s = addAction(s, 1, "combo");
+
+    const restored = normalizeState(fromText(toText(s)), isKnown);
+    expect(restored?.title).toBe(s.title);
+    expect(restored?.characters).toEqual(["mifu", "ember"]);
+    expect(restored?.actions.map((a) => [a.col, a.type, a.note])).toEqual([
+      [0, "skill", "開幕"],
+      [1, "combo", ""],
+    ]);
+  });
+
+  it("parseImport は JSON を優先し、失敗時はテキストとして扱う", () => {
+    let s = addCharacter(createEmptyState(), "mifu");
+    s = addAction(s, 0, "skill");
+    s = updateAction(s, s.actions[0].id, { note: "SP60" });
+
+    const fromJson = normalizeState(parseImport(toJson(s)), isKnown);
+    expect(fromJson?.actions[0].note).toBe("SP60");
+
+    const fromTxt = normalizeState(parseImport(toText(s)), isKnown);
+    expect(fromTxt?.actions[0].note).toBe("SP60");
+  });
+
+  it("空文字は null（インポート失敗）になる", () => {
+    expect(normalizeState(parseImport(""), isKnown)).toBeNull();
   });
 });

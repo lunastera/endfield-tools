@@ -1,5 +1,7 @@
 import {
   ACTION_TYPES,
+  type ActionTypeId,
+  CHARACTERS,
   CHARACTERS_BY_ID,
   CLASS_NAMES,
   ELEMENTS,
@@ -56,6 +58,81 @@ export function toText(state: TimelineState): string {
   }
   return `${lines.join("\n")}\n`;
 }
+
+// --- インポート（JSON / テキスト） -------------------------------------
+
+const NAME_TO_CHAR_ID = new Map(CHARACTERS.map((c) => [c.name, c.id]));
+const TYPE_NAME_TO_ID = new Map(
+  (Object.values(ACTION_TYPES) as { id: ActionTypeId; name: string }[]).map(
+    (t) => [t.name, t.id],
+  ),
+);
+
+/** toText が出力したテキストを緩くパースして raw な state 相当に戻す */
+export function fromText(text: string): {
+  title: string;
+  characters: string[];
+  actions: { col: number; type: string; note: string }[];
+} {
+  const lines = text.split(/\r?\n/);
+  let title = "スキル回し";
+  const characters: string[] = [];
+  const actions: { col: number; type: string; note: string }[] = [];
+
+  for (const line of lines) {
+    const titleMatch = line.match(/^#\s+(.*)$/);
+    if (titleMatch) {
+      title = titleMatch[1].trim() || title;
+      continue;
+    }
+    if (line.startsWith("編成:")) {
+      const body = line.slice("編成:".length).trim();
+      if (body && body !== "(未選択)") {
+        for (const entry of body.split(" / ")) {
+          const name = entry.replace(/^\d+\.\s*/, "").trim();
+          const id = NAME_TO_CHAR_ID.get(name);
+          if (id && !characters.includes(id)) characters.push(id);
+        }
+      }
+      continue;
+    }
+    // 例: " 1. [ミ・フ] 戦技 開幕"
+    const actionMatch = line.match(
+      /^\s*\d+\.\s+\[([^\]]+)\]\s+(\S+)(?:\s+(.*))?$/,
+    );
+    if (actionMatch) {
+      const [, who, typeName, memo] = actionMatch;
+      const id = NAME_TO_CHAR_ID.get(who.trim());
+      const col = id ? characters.indexOf(id) : -1;
+      if (col < 0) continue;
+      actions.push({
+        col,
+        type: TYPE_NAME_TO_ID.get(typeName) ?? "skill",
+        note: (memo ?? "").trim(),
+      });
+    }
+  }
+  return { title, characters, actions };
+}
+
+/**
+ * インポート文字列を解析して raw なオブジェクトを返す。
+ * まず JSON として解釈し、失敗したらテキスト形式として解釈する。
+ * 返り値は normalizeState に渡して検証する想定。
+ */
+export function parseImport(content: string): unknown {
+  const trimmed = content.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch {
+    // JSON でなければテキストとして扱う。
+  }
+  return fromText(trimmed);
+}
+
+// -----------------------------------------------------------------------
 
 function escapeXml(s: string): string {
   return s

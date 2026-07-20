@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { CharacterPicker } from "~/components/skill-timeline/CharacterPicker";
 import {
@@ -9,6 +9,7 @@ import { CHARACTERS_BY_ID } from "~/lib/skill-timeline/data";
 import {
   downloadBlob,
   downloadText,
+  parseImport,
   svgToPngBlob,
   toJson,
   toSvg,
@@ -63,8 +64,9 @@ function loadInitialState(): TimelineState {
 
 export default function SkillTimeline() {
   const [state, setState] = useState<TimelineState>(loadInitialState);
-  const [pngStatus, setPngStatus] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<TimelineMode>("edit");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 変更を localStorage に保存する。
   useEffect(() => {
@@ -76,15 +78,74 @@ export default function SkillTimeline() {
   }, [state]);
 
   const handleExportPng = useCallback(async () => {
-    setPngStatus("PNG を生成中…");
+    setStatusMsg("PNG を生成中…");
     try {
       const blob = await svgToPngBlob(toSvg(state));
       downloadBlob(`${sanitizeFilename(state.title)}.png`, blob);
-      setPngStatus(null);
+      setStatusMsg(null);
     } catch (e) {
-      setPngStatus(e instanceof Error ? e.message : "PNG の生成に失敗しました");
+      setStatusMsg(e instanceof Error ? e.message : "PNG の生成に失敗しました");
     }
   }, [state]);
+
+  const handleCopyText = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(toText(state));
+      setStatusMsg("テキストをクリップボードにコピーしました");
+    } catch {
+      setStatusMsg("クリップボードへのコピーに失敗しました");
+    }
+    window.setTimeout(() => setStatusMsg(null), 2500);
+  }, [state]);
+
+  // JSON / テキストのインポート（PNG は非対応）
+  const importContent = useCallback(
+    (content: string) => {
+      const restored = normalizeState(parseImport(content), isKnown);
+      // 中身が空（キャラも行動もない）＝データとして解釈できなかった扱い。
+      if (
+        !restored ||
+        (restored.characters.length === 0 && restored.actions.length === 0)
+      ) {
+        setStatusMsg(
+          "インポートに失敗しました（JSON かエクスポートしたテキストを指定してください）",
+        );
+        window.setTimeout(() => setStatusMsg(null), 3000);
+        return;
+      }
+      const hasWork = state.characters.length > 0 || state.actions.length > 0;
+      if (
+        hasWork &&
+        !confirm("現在のタイムラインを上書きしてインポートしますか？")
+      ) {
+        return;
+      }
+      setState(restored);
+      setMode("edit");
+      setStatusMsg("インポートしました");
+      window.setTimeout(() => setStatusMsg(null), 2500);
+    },
+    [state.characters.length, state.actions.length],
+  );
+
+  const handleImportFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = ""; // 同じファイルを続けて選べるようにする
+      if (!file) return;
+      importContent(await file.text());
+    },
+    [importContent],
+  );
+
+  const handleImportClipboard = useCallback(async () => {
+    try {
+      importContent(await navigator.clipboard.readText());
+    } catch {
+      setStatusMsg("クリップボードの読み取りに失敗しました");
+      window.setTimeout(() => setStatusMsg(null), 3000);
+    }
+  }, [importContent]);
 
   const canExport = state.characters.length > 0 && state.actions.length > 0;
 
@@ -113,6 +174,38 @@ export default function SkillTimeline() {
       </header>
 
       <div className="grid gap-6">
+        {mode === "edit" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-fg-dim">インポート:</span>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="clip-corner-sm border border-line bg-panel-2 px-3 py-1 text-sm transition-colors hover:border-ef-yellow-dim"
+            >
+              ファイル（JSON / テキスト）
+            </button>
+            <button
+              type="button"
+              onClick={handleImportClipboard}
+              className="clip-corner-sm border border-line bg-panel-2 px-3 py-1 text-sm transition-colors hover:border-ef-yellow-dim"
+            >
+              クリップボードから
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,.txt,application/json,text/plain"
+              onChange={handleImportFile}
+              className="hidden"
+            />
+            <span className="text-xs text-fg-dim">
+              ※ PNG はインポートできません
+            </span>
+          </div>
+        )}
+
+        {statusMsg && <p className="text-xs text-ef-yellow">{statusMsg}</p>}
+
         {mode === "edit" && (
           <CharacterPicker
             selected={state.characters}
@@ -193,20 +286,14 @@ export default function SkillTimeline() {
                 <button
                   type="button"
                   disabled={!canExport}
-                  onClick={() =>
-                    downloadText(
-                      `${sanitizeFilename(state.title)}.txt`,
-                      toText(state),
-                    )
-                  }
+                  onClick={handleCopyText}
+                  title="クリップボードにコピー"
                   className="clip-corner-sm border border-line bg-panel-2 px-3 py-1 text-sm transition-colors hover:border-ef-yellow-dim disabled:opacity-40"
                 >
-                  テキスト
+                  テキストをコピー
                 </button>
               </div>
             </div>
-
-            {pngStatus && <p className="text-xs text-ef-yellow">{pngStatus}</p>}
 
             <TimelineEditor
               state={state}

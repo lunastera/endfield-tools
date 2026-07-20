@@ -24,7 +24,9 @@
 - 編成（キャラ列）もドラッグ&ドロップで左右に組み替え可能（行動の担当も追従）
 - 「編集」モードと視認性重視の「プレビュー」モードを切り替えられる
 - 画面表示と PNG 出力で同じ座標系を使う（[app/lib/skill-timeline/timeline.ts](app/lib/skill-timeline/timeline.ts) の `LAYOUT`）
-- タイムラインを JSON・PNG・テキストでエクスポート（[app/lib/skill-timeline/export.ts](app/lib/skill-timeline/export.ts)）
+- タイムラインを JSON・PNG・テキストでエクスポート（テキストはクリップボードにコピー）（[app/lib/skill-timeline/export.ts](app/lib/skill-timeline/export.ts)）
+- JSON・テキストのインポートに対応（ファイル選択／クリップボードから、PNG は非対応）。
+  JSON を優先し、失敗時はエクスポートしたテキスト形式として解析する
 - 編集内容は localStorage に自動保存
 - キャラクター一覧は[白wiki「オペレーター一覧」](https://arknights-endfield.wikiru.jp/?%E3%82%AA%E3%83%9A%E3%83%AC%E3%83%BC%E3%82%BF%E3%83%BC%E4%B8%80%E8%A6%A7)を出典に [app/lib/skill-timeline/data.ts](app/lib/skill-timeline/data.ts) で手動管理
 
