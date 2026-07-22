@@ -26,6 +26,7 @@
 - ノードにホバーすると上端・下端に「＋」が出て、その位置の上/下に行動を挿入できる
 - 編成（キャラ列）もドラッグ&ドロップで左右に組み替え可能（行動の担当も追従）
 - 「編集」モードと視認性重視の「プレビュー」モードを切り替えられる
+- タブで複数のスキル回しを同時に管理（編成＝PT も行動もタブごとに独立）
 - 画面表示と PNG 出力で同じ座標系を使う（[app/lib/skill-timeline/timeline.ts](app/lib/skill-timeline/timeline.ts) の `LAYOUT`）
 - タイムラインを JSON・PNG・テキストでエクスポート（テキストはクリップボードにコピー）（[app/lib/skill-timeline/export.ts](app/lib/skill-timeline/export.ts)）
 - JSON・テキストのインポートに対応（ファイル選択／クリップボードから、PNG は非対応）。

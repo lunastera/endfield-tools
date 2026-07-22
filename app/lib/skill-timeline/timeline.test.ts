@@ -4,7 +4,9 @@ import { fromText, parseImport, toJson, toSvg, toText } from "./export";
 import {
   addAction,
   addCharacter,
+  addTab,
   createEmptyState,
+  createEmptyWorkspace,
   deleteAction,
   insertActionAt,
   moveAction,
@@ -12,8 +14,12 @@ import {
   moveActionToIndex,
   moveCharacter,
   normalizeState,
+  normalizeWorkspace,
   removeCharacter,
+  removeTab,
+  selectTab,
   updateAction,
+  updateActiveTab,
 } from "./timeline";
 
 const isKnown = (id: string) => CHARACTERS_BY_ID.has(id);
@@ -241,6 +247,61 @@ describe("text / svg export", () => {
     s = updateAction(s, s.actions[0].id, { note: "A & B <c>" });
     const svg = toSvg(s);
     expect(svg).toContain("A &amp; B &lt;c&gt;");
+  });
+});
+
+describe("workspace（タブ）", () => {
+  const isKnown = (id: string) => CHARACTERS_BY_ID.has(id);
+
+  it("タブの追加・切り替え・更新ができる", () => {
+    let w = createEmptyWorkspace();
+    expect(w.tabs).toHaveLength(1);
+
+    w = addTab(w);
+    expect(w.tabs).toHaveLength(2);
+    expect(w.activeIndex).toBe(1); // 追加したタブがアクティブ
+
+    // アクティブタブ（2枚目）だけ更新される
+    w = updateActiveTab(w, (s) => addCharacter(s, "mifu"));
+    expect(w.tabs[1].characters).toEqual(["mifu"]);
+    expect(w.tabs[0].characters).toEqual([]);
+
+    w = selectTab(w, 0);
+    expect(w.activeIndex).toBe(0);
+  });
+
+  it("タブを閉じると activeIndex が調整され、最後の1つは空タブが残る", () => {
+    let w = addTab(addTab(createEmptyWorkspace())); // 3枚
+    w = selectTab(w, 2);
+    w = removeTab(w, 2); // アクティブを閉じる
+    expect(w.tabs).toHaveLength(2);
+    expect(w.activeIndex).toBe(1);
+
+    w = removeTab(w, 0);
+    w = removeTab(w, 0);
+    expect(w.tabs).toHaveLength(1); // 空タブが残る
+    expect(w.activeIndex).toBe(0);
+  });
+
+  it("normalizeWorkspace は旧形式（単一タイムライン）を1タブに移行する", () => {
+    let s = addCharacter(createEmptyState(), "mifu");
+    s = addAction(s, 0, "skill");
+    const w = normalizeWorkspace(JSON.parse(toJson(s)), isKnown);
+    expect(w?.tabs).toHaveLength(1);
+    expect(w?.tabs[0].characters).toEqual(["mifu"]);
+    expect(w?.activeIndex).toBe(0);
+  });
+
+  it("normalizeWorkspace は新形式を検証し activeIndex をクランプする", () => {
+    let w0 = addTab(createEmptyWorkspace());
+    w0 = updateActiveTab(w0, (s) => addCharacter(s, "ember"));
+    const restored = normalizeWorkspace(
+      { ...JSON.parse(JSON.stringify(w0)), activeIndex: 99 },
+      isKnown,
+    );
+    expect(restored?.tabs).toHaveLength(2);
+    expect(restored?.activeIndex).toBe(1); // 範囲内にクランプ
+    expect(restored?.tabs[1].characters).toEqual(["ember"]);
   });
 });
 

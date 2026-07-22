@@ -240,6 +240,86 @@ export function normalizeState(
   };
 }
 
+// --- ワークスペース（複数タブ） -----------------------------------------
+
+export const WORKSPACE_VERSION = 1 as const;
+
+/** 複数のタイムライン（タブ）をまとめて扱う。各タブは独立した編成・行動を持つ。 */
+export type Workspace = {
+  version: typeof WORKSPACE_VERSION;
+  activeIndex: number;
+  tabs: TimelineState[];
+};
+
+export function createEmptyWorkspace(): Workspace {
+  return {
+    version: WORKSPACE_VERSION,
+    activeIndex: 0,
+    tabs: [createEmptyState()],
+  };
+}
+
+/** アクティブなタブを更新する */
+export function updateActiveTab(
+  w: Workspace,
+  updater: (s: TimelineState) => TimelineState,
+): Workspace {
+  return {
+    ...w,
+    tabs: w.tabs.map((t, i) => (i === w.activeIndex ? updater(t) : t)),
+  };
+}
+
+/** タブを追加してアクティブにする */
+export function addTab(w: Workspace): Workspace {
+  const tabs = [...w.tabs, createEmptyState()];
+  return { ...w, tabs, activeIndex: tabs.length - 1 };
+}
+
+/** タブを閉じる。最後の1つを閉じたら空タブを1つ残す。 */
+export function removeTab(w: Workspace, index: number): Workspace {
+  if (index < 0 || index >= w.tabs.length) return w;
+  let tabs = w.tabs.filter((_, i) => i !== index);
+  if (tabs.length === 0) tabs = [createEmptyState()];
+  const shifted = w.activeIndex > index ? w.activeIndex - 1 : w.activeIndex;
+  const activeIndex = Math.max(0, Math.min(shifted, tabs.length - 1));
+  return { ...w, tabs, activeIndex };
+}
+
+export function selectTab(w: Workspace, index: number): Workspace {
+  if (index < 0 || index >= w.tabs.length) return w;
+  return { ...w, activeIndex: index };
+}
+
+/**
+ * 保存データを Workspace に正規化する。
+ * 新形式（{tabs, activeIndex}）と、旧形式（単一 TimelineState）の両方を受け付ける。
+ */
+export function normalizeWorkspace(
+  input: unknown,
+  isKnownCharacter: (id: string) => boolean,
+): Workspace | null {
+  if (typeof input === "object" && input !== null) {
+    const raw = input as Record<string, unknown>;
+    if (Array.isArray(raw.tabs)) {
+      const tabs = raw.tabs
+        .map((t) => normalizeState(t, isKnownCharacter))
+        .filter((t): t is TimelineState => t !== null);
+      if (tabs.length === 0) return null;
+      const activeIndex =
+        typeof raw.activeIndex === "number"
+          ? Math.max(0, Math.min(Math.floor(raw.activeIndex), tabs.length - 1))
+          : 0;
+      return { version: WORKSPACE_VERSION, activeIndex, tabs };
+    }
+  }
+  // 旧形式（単一タイムライン）を1タブに包んで移行する。
+  const single = normalizeState(input, isKnownCharacter);
+  if (single)
+    return { version: WORKSPACE_VERSION, activeIndex: 0, tabs: [single] };
+  return null;
+}
+
 /** 列の中心 X 座標 */
 export function columnCenterX(col: number): number {
   return LAYOUT.gutter + col * LAYOUT.colWidth + LAYOUT.colWidth / 2;

@@ -18,15 +18,22 @@ import {
 import {
   addAction,
   addCharacter,
+  addTab,
   createEmptyState,
+  createEmptyWorkspace,
   deleteAction,
   insertActionAt,
   moveActionTo,
   moveCharacter,
   normalizeState,
+  normalizeWorkspace,
   removeCharacter,
+  removeTab,
+  selectTab,
   type TimelineState,
   updateAction,
+  updateActiveTab,
+  type Workspace,
 } from "~/lib/skill-timeline/timeline";
 
 export function meta() {
@@ -48,35 +55,45 @@ function sanitizeFilename(name: string): string {
   return base.slice(0, 60);
 }
 
-/** localStorage から復元した初期状態（SPA なので初期化時に window を参照できる） */
-function loadInitialState(): TimelineState {
-  if (typeof window === "undefined") return createEmptyState();
+/** localStorage から復元したワークスペース（SPA なので初期化時に window を参照できる） */
+function loadInitialWorkspace(): Workspace {
+  if (typeof window === "undefined") return createEmptyWorkspace();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const restored = normalizeState(JSON.parse(raw), isKnown);
+      const restored = normalizeWorkspace(JSON.parse(raw), isKnown);
       if (restored) return restored;
     }
   } catch {
     // 壊れた保存データは無視して空の状態から始める。
   }
-  return createEmptyState();
+  return createEmptyWorkspace();
 }
 
 export default function SkillTimeline() {
-  const [state, setState] = useState<TimelineState>(loadInitialState);
+  const [workspace, setWorkspace] = useState<Workspace>(loadInitialWorkspace);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<TimelineMode>("edit");
+  const [editingTab, setEditingTab] = useState<number | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 変更を localStorage に保存する。
+  const state = workspace.tabs[workspace.activeIndex];
+  // アクティブなタブだけを更新するラッパー。
+  const setState = useCallback(
+    (updater: (s: TimelineState) => TimelineState) =>
+      setWorkspace((w) => updateActiveTab(w, updater)),
+    [],
+  );
+
+  // 変更を localStorage に保存する（全タブ）。
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, toJson(state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
     } catch {
       // 保存できなくてもツール自体は動作する。
     }
-  }, [state]);
+  }, [workspace]);
 
   const handleExportPng = useCallback(async () => {
     setStatusMsg("PNG を生成中…");
@@ -121,12 +138,12 @@ export default function SkillTimeline() {
       ) {
         return;
       }
-      setState(restored);
+      setState(() => restored);
       setMode("edit");
       setStatusMsg("インポートしました");
       window.setTimeout(() => setStatusMsg(null), 2500);
     },
-    [state.characters.length, state.actions.length],
+    [state.characters.length, state.actions.length, setState],
   );
 
   const handleImportFile = useCallback(
@@ -147,6 +164,28 @@ export default function SkillTimeline() {
       window.setTimeout(() => setStatusMsg(null), 3000);
     }
   }, [importContent]);
+
+  const startRenameTab = (index: number) => {
+    setEditingTab(index);
+    setDraftTitle(workspace.tabs[index].title);
+  };
+  const commitRenameTab = () => {
+    if (editingTab === null) return;
+    const index = editingTab;
+    const title = draftTitle;
+    setWorkspace((w) => ({
+      ...w,
+      tabs: w.tabs.map((t, i) => (i === index ? { ...t, title } : t)),
+    }));
+    setEditingTab(null);
+  };
+
+  const handleCloseTab = (index: number) => {
+    const tab = workspace.tabs[index];
+    const hasWork = tab.characters.length > 0 || tab.actions.length > 0;
+    if (hasWork && !confirm(`「${tab.title || "無題"}」を閉じますか？`)) return;
+    setWorkspace((w) => removeTab(w, index));
+  };
 
   const canExport = state.characters.length > 0 && state.actions.length > 0;
 
@@ -175,6 +214,70 @@ export default function SkillTimeline() {
       </header>
 
       <div className="grid gap-6">
+        {/* タブバー: 複数のスキル回しを切り替える */}
+        <div className="flex flex-wrap items-end gap-1 border-line border-b">
+          {workspace.tabs.map((tab, i) => {
+            const activeTab = i === workspace.activeIndex;
+            return (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: タブは位置で識別する
+                key={i}
+                className={`clip-corner-sm flex items-center gap-1 border border-b-0 py-1 pr-1 pl-3 ${
+                  activeTab
+                    ? "border-line bg-panel text-fg"
+                    : "border-transparent bg-panel-2/50 text-fg-dim hover:text-fg"
+                }`}
+              >
+                {editingTab === i ? (
+                  <input
+                    // biome-ignore lint/a11y/noAutofocus: 名称変更のため即入力させたい
+                    autoFocus
+                    value={draftTitle}
+                    onChange={(e) => setDraftTitle(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    onBlur={commitRenameTab}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitRenameTab();
+                      else if (e.key === "Escape") setEditingTab(null);
+                    }}
+                    className="w-[16ch] rounded border border-ef-yellow-dim bg-ink px-1 text-sm outline-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setWorkspace((w) => selectTab(w, i))}
+                    onDoubleClick={() => startRenameTab(i)}
+                    className="max-w-[16ch] truncate text-sm"
+                    title={`${tab.title || "無題"}（ダブルクリックで名称変更）`}
+                  >
+                    {tab.title || "無題"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleCloseTab(i)}
+                  aria-label={`タブ「${tab.title || "無題"}」を閉じる`}
+                  className="grid size-4 shrink-0 place-items-center rounded text-fg-dim hover:text-danger"
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => {
+              setWorkspace((w) => addTab(w));
+              setMode("edit");
+            }}
+            aria-label="スキル回しを追加"
+            title="スキル回しを追加"
+            className="mb-px grid size-7 place-items-center rounded text-fg-dim transition-colors hover:bg-panel-2 hover:text-ef-yellow"
+          >
+            ＋
+          </button>
+        </div>
+
         {mode === "edit" && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-fg-dim">インポート:</span>
@@ -323,8 +426,8 @@ export default function SkillTimeline() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (confirm("タイムラインをすべてリセットしますか？")) {
-                      setState(createEmptyState());
+                    if (confirm("このタブのタイムラインをリセットしますか？")) {
+                      setState(() => createEmptyState());
                     }
                   }}
                   className="text-xs text-fg-dim underline-offset-2 hover:text-danger hover:underline"
