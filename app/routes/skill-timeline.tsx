@@ -16,6 +16,12 @@ import {
   toText,
 } from "~/lib/skill-timeline/export";
 import {
+  buildShareUrl,
+  decodeShare,
+  encodeShare,
+  extractShareParam,
+} from "~/lib/skill-timeline/share";
+import {
   addAction,
   addCharacter,
   addTab,
@@ -120,6 +126,35 @@ export default function SkillTimeline() {
     }
   }, [workspace]);
 
+  // 共有 URL（#s=...）付きで開かれたら、新しいタブとして読み込む。
+  useEffect(() => {
+    const param = extractShareParam(window.location.hash);
+    if (!param) return;
+    // ハッシュは読み込み後に消す（履歴やリロードで二重取り込みしない）。
+    history.replaceState(null, "", window.location.href.split("#")[0]);
+    try {
+      const restored = normalizeState(decodeShare(param), isKnown);
+      if (restored && (restored.characters.length || restored.actions.length)) {
+        setWorkspace((w) => {
+          // 空タブしか無い（新規訪問など）ならそのタブを置き換える。
+          const onlyEmpty =
+            w.tabs.length === 1 &&
+            w.tabs[0].characters.length === 0 &&
+            w.tabs[0].actions.length === 0;
+          return onlyEmpty
+            ? { ...w, tabs: [restored], activeIndex: 0 }
+            : { ...w, tabs: [...w.tabs, restored], activeIndex: w.tabs.length };
+        });
+        setMode("edit");
+        setStatusMsg("共有リンクから読み込みました");
+        window.setTimeout(() => setStatusMsg(null), 3000);
+      }
+    } catch {
+      setStatusMsg("共有リンクの読み込みに失敗しました");
+      window.setTimeout(() => setStatusMsg(null), 3000);
+    }
+  }, []);
+
   const handleExportPng = useCallback(async () => {
     setStatusMsg("PNG を生成中…");
     try {
@@ -139,6 +174,21 @@ export default function SkillTimeline() {
       setStatusMsg("クリップボードへのコピーに失敗しました");
     }
     window.setTimeout(() => setStatusMsg(null), 2500);
+  }, [state]);
+
+  const handleShareUrl = useCallback(async () => {
+    const url = buildShareUrl(window.location.href, encodeShare(state));
+    try {
+      await navigator.clipboard.writeText(url);
+      setStatusMsg(
+        url.length > 8000
+          ? "共有URLをコピーしました（データが大きくURLが長いため一部環境で開けない場合があります）"
+          : "共有URLをクリップボードにコピーしました",
+      );
+    } catch {
+      setStatusMsg("共有URLのコピーに失敗しました");
+    }
+    window.setTimeout(() => setStatusMsg(null), 3500);
   }, [state]);
 
   // JSON / テキストのインポート（PNG は非対応）
@@ -519,6 +569,15 @@ export default function SkillTimeline() {
                   className="clip-corner-sm border border-line bg-panel-2 px-3 py-1 text-sm transition-colors hover:border-ef-yellow-dim disabled:opacity-40"
                 >
                   テキストをコピー
+                </button>
+                <button
+                  type="button"
+                  disabled={!canExport}
+                  onClick={handleShareUrl}
+                  title="このタブを共有するURLをクリップボードにコピー"
+                  className="clip-corner-sm border border-ef-yellow-dim bg-panel-2 px-3 py-1 text-sm text-ef-yellow transition-colors hover:bg-ef-yellow/10 disabled:opacity-40"
+                >
+                  URLで共有
                 </button>
               </div>
             </div>

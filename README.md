@@ -29,6 +29,8 @@
 - タブで複数のスキル回しを同時に管理（編成＝PT も行動もタブごとに独立）
 - タブ単位で名前を付けてブラウザに保存／読込（読込は新しいタブとして開く）。
   全タブの自動保存（ページ読み込み時に復元）とは別枠の localStorage キーに保存する
+- 「URLで共有」でアクティブタブのデータを URL ハッシュ（`#s=...`）に載せた共有リンクを生成。
+  リンクを開くとサーバー無しで内容を復元する（新しいタブとして読み込み）
 - 画面表示と PNG 出力で同じ座標系を使う（[app/lib/skill-timeline/timeline.ts](app/lib/skill-timeline/timeline.ts) の `LAYOUT`）
 - タイムラインを JSON・PNG・テキストでエクスポート（テキストはクリップボードにコピー）（[app/lib/skill-timeline/export.ts](app/lib/skill-timeline/export.ts)）
 - JSON・テキストのインポートに対応（ファイル選択／クリップボードから、PNG は非対応）。

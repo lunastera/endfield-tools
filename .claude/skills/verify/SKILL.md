@@ -60,6 +60,9 @@ const browser = await chromium.launch({
 9b. 「現在のタブを保存」でタブ単位の名前付き保存（別キー
     `endfield-tools:skill-timeline:saves`）。「読込」は新しいタブとして開く。
     保存済みは削除・上書きでき、リロードで残る
+9c. 「URLで共有」でアクティブタブを `#s=<base64url>` に載せた共有 URL を生成しコピー。
+    別セッション（localStorage 空）でその URL を開くと内容が復元され、ハッシュは消える
+    （share.ts: encodeShare/decodeShare の往復。日本語メモは UTF-8→base64url）
 10. インポート: 「ファイル（JSON / テキスト）」で `input[type=file]` に .json/.txt を
     `setInputFiles`、または「クリップボードから」。JSON 優先・失敗時はテキスト解析。
     中身が空になるデータ（無効）は失敗扱いで既存を上書きしない

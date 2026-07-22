@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { CHARACTERS_BY_ID } from "./data";
 import { fromText, parseImport, toJson, toSvg, toText } from "./export";
 import {
+  buildShareUrl,
+  decodeShare,
+  encodeShare,
+  extractShareParam,
+} from "./share";
+import {
   addAction,
   addCharacter,
   addTab,
@@ -302,6 +308,38 @@ describe("workspace（タブ）", () => {
     expect(restored?.tabs).toHaveLength(2);
     expect(restored?.activeIndex).toBe(1); // 範囲内にクランプ
     expect(restored?.tabs[1].characters).toEqual(["ember"]);
+  });
+});
+
+describe("share（URL共有）", () => {
+  const isKnown = (id: string) => CHARACTERS_BY_ID.has(id);
+
+  it("encode→decode→normalize で内容が保たれる（日本語メモ含む）", () => {
+    let s = addCharacter(createEmptyState(), "mifu");
+    s = addCharacter(s, "ember");
+    s = addAction(s, 0, "skill");
+    s = addAction(s, 0, "combo");
+    s = addAction(s, 1, "ultimate");
+    s = updateAction(s, s.actions[0].id, { note: "開幕 & 連携＜重要＞" });
+
+    const restored = normalizeState(decodeShare(encodeShare(s)), isKnown);
+    expect(restored?.title).toBe(s.title);
+    expect(restored?.characters).toEqual(["mifu", "ember"]);
+    expect(restored?.actions.map((a) => [a.col, a.type, a.note])).toEqual(
+      s.actions.map((a) => [a.col, a.type, a.note]),
+    );
+  });
+
+  it("buildShareUrl / extractShareParam が対応する", () => {
+    const encoded = encodeShare(addCharacter(createEmptyState(), "mifu"));
+    const url = buildShareUrl("https://example.com/app/#s=old", encoded);
+    expect(url).toBe(`https://example.com/app/#s=${encoded}`);
+    expect(extractShareParam(new URL(url).hash)).toBe(encoded);
+    expect(extractShareParam("#foo=1")).toBeNull();
+  });
+
+  it("不正な共有文字列は例外になる", () => {
+    expect(() => decodeShare("!!!not-base64!!!")).toThrow();
   });
 });
 
