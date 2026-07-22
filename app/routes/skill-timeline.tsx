@@ -47,8 +47,32 @@ export function meta() {
   ];
 }
 
+// 全タブの状態を自動保存する（ページ読み込み時に復元される）キー。
 const STORAGE_KEY = "endfield-tools:skill-timeline";
+// タブ単位の名前付き保存（手動）を格納する、自動保存とは別のキー。
+const SAVES_KEY = "endfield-tools:skill-timeline:saves";
 const isKnown = (id: string) => CHARACTERS_BY_ID.has(id);
+
+/** タブ単位の名前付き保存 */
+type SavedTimeline = { name: string; savedAt: number; timeline: TimelineState };
+
+function loadSaves(): SavedTimeline[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(SAVES_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return arr.filter(
+          (x) => x && typeof x.name === "string" && x.timeline,
+        ) as SavedTimeline[];
+      }
+    }
+  } catch {
+    // 壊れた保存データは無視する。
+  }
+  return [];
+}
 
 function sanitizeFilename(name: string): string {
   const base = name.trim().replace(/[\\/:*?"<>|]/g, "_") || "skill-timeline";
@@ -76,6 +100,7 @@ export default function SkillTimeline() {
   const [mode, setMode] = useState<TimelineMode>("edit");
   const [editingTab, setEditingTab] = useState<number | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
+  const [saves, setSaves] = useState<SavedTimeline[]>(loadSaves);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const state = workspace.tabs[workspace.activeIndex];
@@ -185,6 +210,53 @@ export default function SkillTimeline() {
     const hasWork = tab.characters.length > 0 || tab.actions.length > 0;
     if (hasWork && !confirm(`「${tab.title || "無題"}」を閉じますか？`)) return;
     setWorkspace((w) => removeTab(w, index));
+  };
+
+  // --- タブ単位の名前付き保存/読込（自動保存とは別枠） ---
+  const persistSaves = (next: SavedTimeline[]) => {
+    setSaves(next);
+    try {
+      localStorage.setItem(SAVES_KEY, JSON.stringify(next));
+    } catch {
+      // 保存できなくても動作はする。
+    }
+  };
+
+  const handleSaveTab = () => {
+    const name = (state.title || "無題").trim();
+    const entry: SavedTimeline = { name, savedAt: Date.now(), timeline: state };
+    const existing = saves.findIndex((s) => s.name === name);
+    if (existing >= 0) {
+      if (!confirm(`「${name}」を上書き保存しますか？`)) return;
+      persistSaves(saves.map((s, i) => (i === existing ? entry : s)));
+    } else {
+      persistSaves([entry, ...saves]);
+    }
+    setStatusMsg(`「${name}」を保存しました`);
+    window.setTimeout(() => setStatusMsg(null), 2500);
+  };
+
+  const handleLoadSave = (index: number) => {
+    const restored = normalizeState(saves[index].timeline, isKnown);
+    if (!restored) {
+      setStatusMsg("読み込みに失敗しました");
+      window.setTimeout(() => setStatusMsg(null), 3000);
+      return;
+    }
+    // 現在のタブは残し、新しいタブとして読み込む。
+    setWorkspace((w) => ({
+      ...w,
+      tabs: [...w.tabs, restored],
+      activeIndex: w.tabs.length,
+    }));
+    setMode("edit");
+    setStatusMsg(`「${saves[index].name}」を新しいタブに読み込みました`);
+    window.setTimeout(() => setStatusMsg(null), 2500);
+  };
+
+  const handleDeleteSave = (index: number) => {
+    if (!confirm(`保存「${saves[index].name}」を削除しますか？`)) return;
+    persistSaves(saves.filter((_, i) => i !== index));
   };
 
   const canExport = state.characters.length > 0 && state.actions.length > 0;
@@ -305,6 +377,58 @@ export default function SkillTimeline() {
             <span className="text-xs text-fg-dim">
               ※ PNG はインポートできません
             </span>
+          </div>
+        )}
+
+        {/* タブ単位の保存/読込（自動保存とは別枠でブラウザに保存） */}
+        {mode === "edit" && (
+          <div className="clip-corner border border-line bg-panel/60 p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-bold tracking-widest">
+                保存済みスキル回し（タブ単位）
+              </h2>
+              <button
+                type="button"
+                onClick={handleSaveTab}
+                className="clip-corner-sm ml-auto border border-line bg-panel-2 px-3 py-1 text-sm transition-colors hover:border-ef-yellow-dim"
+              >
+                現在のタブを保存
+              </button>
+            </div>
+            {saves.length === 0 ? (
+              <p className="text-xs text-fg-dim">
+                保存はまだありません。「現在のタブを保存」で登録できます（自動保存とは別枠）。
+              </p>
+            ) : (
+              <ul className="flex flex-wrap gap-2">
+                {saves.map((s, i) => (
+                  <li
+                    key={s.name}
+                    className="clip-corner-sm flex items-center gap-1 border border-line bg-panel-2 py-1 pr-1 pl-3"
+                    title={`保存日時: ${new Date(s.savedAt).toLocaleString()}`}
+                  >
+                    <span className="max-w-[16ch] truncate text-sm">
+                      {s.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleLoadSave(i)}
+                      className="clip-corner-sm border border-line px-2 py-0.5 text-xs text-fg-dim hover:border-ef-yellow-dim hover:text-fg"
+                    >
+                      読込
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSave(i)}
+                      aria-label={`保存「${s.name}」を削除`}
+                      className="grid size-5 place-items-center rounded text-fg-dim hover:text-danger"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 

@@ -27,6 +27,8 @@
 - 編成（キャラ列）もドラッグ&ドロップで左右に組み替え可能（行動の担当も追従）
 - 「編集」モードと視認性重視の「プレビュー」モードを切り替えられる
 - タブで複数のスキル回しを同時に管理（編成＝PT も行動もタブごとに独立）
+- タブ単位で名前を付けてブラウザに保存／読込（読込は新しいタブとして開く）。
+  全タブの自動保存（ページ読み込み時に復元）とは別枠の localStorage キーに保存する
 - 画面表示と PNG 出力で同じ座標系を使う（[app/lib/skill-timeline/timeline.ts](app/lib/skill-timeline/timeline.ts) の `LAYOUT`）
 - タイムラインを JSON・PNG・テキストでエクスポート（テキストはクリップボードにコピー）（[app/lib/skill-timeline/export.ts](app/lib/skill-timeline/export.ts)）
 - JSON・テキストのインポートに対応（ファイル選択／クリップボードから、PNG は非対応）。

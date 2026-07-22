@@ -55,7 +55,11 @@ const browser = await chromium.launch({
 8. JSON / PNG はダウンロードできる（`page.on("download")` で捕捉。
    PNG は先頭 4 バイトが 89 50 4E 47）。テキストはクリップボードにコピー
    （context に `clipboard-read/write` 権限を付与し `navigator.clipboard.readText()` で確認）
-9. リロードしても localStorage から編成・行動が復元される
+9. リロードしても localStorage から編成・行動が復元される（自動保存は全タブ、
+   キー `endfield-tools:skill-timeline`）
+9b. 「現在のタブを保存」でタブ単位の名前付き保存（別キー
+    `endfield-tools:skill-timeline:saves`）。「読込」は新しいタブとして開く。
+    保存済みは削除・上書きでき、リロードで残る
 10. インポート: 「ファイル（JSON / テキスト）」で `input[type=file]` に .json/.txt を
     `setInputFiles`、または「クリップボードから」。JSON 優先・失敗時はテキスト解析。
     中身が空になるデータ（無効）は失敗扱いで既存を上書きしない
