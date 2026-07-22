@@ -6,6 +6,7 @@ import {
   addCharacter,
   createEmptyState,
   deleteAction,
+  insertActionAt,
   moveAction,
   moveActionTo,
   moveActionToIndex,
@@ -95,6 +96,29 @@ describe("action editing", () => {
     // 端を超える移動は無視
     s = moveAction(s, second, -1);
     expect(s.actions.map((a) => a.id)).toEqual([second, first]);
+  });
+
+  it("insertActionAt で上/下の任意位置に挿入できる", () => {
+    let s = createEmptyState();
+    s = addCharacter(s, "mifu");
+    s = addCharacter(s, "ember");
+    s = addAction(s, 0); // index0
+    s = addAction(s, 0); // index1
+    const [a, b] = s.actions.map((x) => x.id);
+
+    // a(index0) の上（index0）に col1 で挿入
+    const above = insertActionAt(s, 0, 1);
+    expect(above.actions.map((x) => x.id)).toEqual([above.actions[0].id, a, b]);
+    expect(above.actions[0].col).toBe(1);
+
+    // a(index0) の下（index1）に挿入
+    const below = insertActionAt(s, 1, 0);
+    expect(below.actions.map((x) => x.id)).toEqual([a, below.actions[1].id, b]);
+
+    // index はクランプされる
+    const end = insertActionAt(s, 99, 0);
+    expect(end.actions).toHaveLength(3);
+    expect(end.actions[2].col).toBe(0);
   });
 
   it("moveActionTo で時系列と担当列を同時に変更できる", () => {

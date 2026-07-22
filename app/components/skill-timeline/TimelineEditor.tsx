@@ -22,6 +22,7 @@ type Props = {
   state: TimelineState;
   mode: TimelineMode;
   onAddAction: (col: number) => void;
+  onInsertAction: (atIndex: number, col: number) => void;
   onUpdateAction: (
     id: string,
     patch: Partial<Omit<TimelineAction, "id">>,
@@ -42,6 +43,7 @@ function EditableBlock({
   onDelete,
   onDragStart,
   onDragEnd,
+  onInsert,
   dimmed,
 }: {
   action: TimelineAction;
@@ -50,70 +52,104 @@ function EditableBlock({
   onDelete: Props["onDeleteAction"];
   onDragStart: (id: string, e: DragEvent) => void;
   onDragEnd: () => void;
+  onInsert: (atIndex: number, col: number) => void;
   dimmed: boolean;
 }) {
   const type = ACTION_TYPES[action.type];
+  // ドラッグ時のプレビュー画像にノード全体を使うための参照。
+  const blockRef = useRef<HTMLDivElement>(null);
+
+  const handleDragStart = (e: DragEvent) => {
+    const el = blockRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      e.dataTransfer.setDragImage(el, e.clientX - r.left, e.clientY - r.top);
+    }
+    onDragStart(action.id, e);
+  };
+
+  const insertBtn = (atIndex: number, where: "上" | "下") => (
+    <button
+      type="button"
+      onClick={() => onInsert(atIndex, action.col)}
+      aria-label={`${where}に行動を追加`}
+      title={`${where}に行動を追加`}
+      className={`-translate-x-1/2 absolute left-1/2 z-10 grid size-4 place-items-center rounded-full border border-ef-yellow bg-ink text-[11px] text-ef-yellow leading-none opacity-0 transition-opacity hover:bg-ef-yellow hover:text-ink group-hover:opacity-100 ${
+        where === "上" ? "-top-2" : "-bottom-2"
+      }`}
+    >
+      ＋
+    </button>
+  );
 
   return (
     <div
-      className="absolute flex flex-col overflow-hidden rounded border bg-panel-2 transition-opacity"
+      className="group absolute transition-opacity"
       style={{
         left: gutter + action.col * colWidth + 10,
         top: index * rowHeight + 8,
         width: colWidth - 20,
         height: rowHeight - 16,
-        borderColor: type.color,
-        borderLeftWidth: 4,
         opacity: dimmed ? 0.4 : 1,
       }}
     >
-      {/* ドラッグハンドル（ノードごと並べ替え） */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: D&D 用のハンドル */}
       <div
-        draggable
-        onDragStart={(e) => onDragStart(action.id, e)}
-        onDragEnd={onDragEnd}
-        title="ドラッグで並べ替え"
-        className="flex h-4 shrink-0 cursor-grab items-center justify-center leading-none text-fg-dim/70 active:cursor-grabbing"
-        style={{ backgroundColor: `${type.color}22` }}
+        ref={blockRef}
+        className="flex h-full flex-col overflow-hidden rounded border bg-panel-2"
+        style={{ borderColor: type.color, borderLeftWidth: 4 }}
       >
-        ⠿
-      </div>
-      <div className="flex flex-1 flex-col justify-center gap-1 p-1.5">
-        <div className="flex items-center gap-1">
-          <select
-            value={action.type}
-            onChange={(e) =>
-              onUpdate(action.id, {
-                type: e.target.value as TimelineAction["type"],
-              })
-            }
-            title="行動の種類"
-            className="min-w-0 flex-1 rounded border bg-ink px-1 py-0.5 text-[11px] font-bold outline-none"
-            style={{ borderColor: type.color, color: type.color }}
-          >
-            {ACTION_TYPE_ORDER.map((id) => (
-              <option key={id} value={id} className="text-fg">
-                {ACTION_TYPES[id].name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => onDelete(action.id)}
-            aria-label="この行動を削除"
-            className="grid size-5 shrink-0 place-items-center rounded text-fg-dim hover:text-danger"
-          >
-            ✕
-          </button>
+        {/* ドラッグハンドル（ノードごと並べ替え） */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: D&D 用のハンドル */}
+        <div
+          draggable
+          onDragStart={handleDragStart}
+          onDragEnd={onDragEnd}
+          title="ドラッグで並べ替え"
+          className="flex h-4 shrink-0 cursor-grab items-center justify-center leading-none text-fg-dim/70 active:cursor-grabbing"
+          style={{ backgroundColor: `${type.color}22` }}
+        >
+          ⠿
         </div>
-        <input
-          value={action.note}
-          onChange={(e) => onUpdate(action.id, { note: e.target.value })}
-          placeholder="メモ"
-          className="w-full min-w-0 rounded border border-line bg-ink px-1 py-0.5 text-[11px] outline-none placeholder:text-fg-dim/50 focus:border-ef-yellow-dim"
-        />
+        <div className="flex flex-1 flex-col justify-center gap-1 p-1.5">
+          <div className="flex items-center gap-1">
+            <select
+              value={action.type}
+              onChange={(e) =>
+                onUpdate(action.id, {
+                  type: e.target.value as TimelineAction["type"],
+                })
+              }
+              title="行動の種類"
+              className="min-w-0 flex-1 rounded border bg-ink px-1 py-0.5 text-[11px] font-bold outline-none"
+              style={{ borderColor: type.color, color: type.color }}
+            >
+              {ACTION_TYPE_ORDER.map((id) => (
+                <option key={id} value={id} className="text-fg">
+                  {ACTION_TYPES[id].name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => onDelete(action.id)}
+              aria-label="この行動を削除"
+              className="grid size-5 shrink-0 place-items-center rounded text-fg-dim hover:text-danger"
+            >
+              ✕
+            </button>
+          </div>
+          <input
+            value={action.note}
+            onChange={(e) => onUpdate(action.id, { note: e.target.value })}
+            placeholder="メモ"
+            className="w-full min-w-0 rounded border border-line bg-ink px-1 py-0.5 text-[11px] outline-none placeholder:text-fg-dim/50 focus:border-ef-yellow-dim"
+          />
+        </div>
       </div>
+
+      {/* ホバーで現れる上/下の挿入ボタン */}
+      {insertBtn(index, "上")}
+      {insertBtn(index + 1, "下")}
     </div>
   );
 }
@@ -162,6 +198,7 @@ export function TimelineEditor({
   state,
   mode,
   onAddAction,
+  onInsertAction,
   onUpdateAction,
   onDeleteAction,
   onReorder,
@@ -427,6 +464,7 @@ export function TimelineEditor({
                 onDelete={onDeleteAction}
                 onDragStart={startFullDrag}
                 onDragEnd={endNodeDrag}
+                onInsert={onInsertAction}
                 dimmed={dragId === a.id}
               />
             ) : (

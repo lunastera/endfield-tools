@@ -20,6 +20,7 @@ import {
   addCharacter,
   createEmptyState,
   deleteAction,
+  insertActionAt,
   moveActionTo,
   moveCharacter,
   normalizeState,
@@ -299,6 +300,9 @@ export default function SkillTimeline() {
               state={state}
               mode={mode}
               onAddAction={(col) => setState((s) => addAction(s, col))}
+              onInsertAction={(atIndex, col) =>
+                setState((s) => insertActionAt(s, atIndex, col))
+              }
               onUpdateAction={(id, patch) =>
                 setState((s) => updateAction(s, id, patch))
               }

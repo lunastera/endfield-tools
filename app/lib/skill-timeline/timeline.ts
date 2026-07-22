@@ -99,6 +99,21 @@ export function addAction(
   return { ...state, actions: [...state.actions, action] };
 }
 
+/** 時系列の任意位置（index）に、指定列で行動を挿入する */
+export function insertActionAt(
+  state: TimelineState,
+  index: number,
+  col: number,
+  type: ActionTypeId = "skill",
+): TimelineState {
+  if (col < 0 || col >= state.characters.length) return state;
+  const clamped = Math.max(0, Math.min(index, state.actions.length));
+  const action: TimelineAction = { id: nextId(), col, type, note: "" };
+  const actions = [...state.actions];
+  actions.splice(clamped, 0, action);
+  return { ...state, actions };
+}
+
 export function updateAction(
   state: TimelineState,
   id: string,
