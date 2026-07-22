@@ -36,12 +36,16 @@ function fromBase64Url(s: string): string {
 
 type TabInput = {
   title: string;
+  ultimateReady: boolean;
+  description: string;
   characters: string[];
   actions: { col: number; type: ActionTypeId; note: string }[];
 };
 
 type RawTab = {
   title?: string;
+  ultimateReady: boolean;
+  description: string;
   characters: string[];
   actions: { col: number; type: string; note: string }[];
 };
@@ -50,6 +54,8 @@ type RawTab = {
 function tabToPayload(state: TabInput) {
   return {
     t: state.title,
+    u: state.ultimateReady ? 1 : 0,
+    d: state.description,
     c: state.characters,
     a: state.actions.map((a) => [a.col, TYPE_CODE[a.type] ?? "s", a.note]),
   };
@@ -69,6 +75,8 @@ function payloadToRaw(p: Record<string, unknown>): RawTab {
     : [];
   return {
     title: typeof p.t === "string" ? p.t : undefined,
+    ultimateReady: p.u === 1 || p.u === true,
+    description: typeof p.d === "string" ? p.d : "",
     characters: Array.isArray(p.c)
       ? (p.c.filter((c) => typeof c === "string") as string[])
       : [],

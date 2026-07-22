@@ -25,6 +25,8 @@ export function toJson(state: TimelineState): string {
     {
       version: state.version,
       title: state.title,
+      ultimateReady: state.ultimateReady,
+      description: state.description,
       characters: state.characters,
       actions: state.actions.map((a) => ({
         col: a.col,
@@ -42,6 +44,10 @@ export function toText(state: TimelineState): string {
   const lines: string[] = [];
   lines.push(`# ${state.title || "スキル回し"}`);
   lines.push("");
+  lines.push(`前提: 必殺ゲージMAX ${state.ultimateReady ? "要" : "不問"}`);
+  if (state.description.trim()) {
+    lines.push(`説明: ${state.description.replace(/\n/g, " ")}`);
+  }
   const party = state.characters.map((id, i) => `${i + 1}. ${charName(id)}`);
   lines.push(`編成: ${party.join(" / ") || "(未選択)"}`);
   lines.push("");
@@ -71,11 +77,15 @@ const TYPE_NAME_TO_ID = new Map(
 /** toText が出力したテキストを緩くパースして raw な state 相当に戻す */
 export function fromText(text: string): {
   title: string;
+  ultimateReady: boolean;
+  description: string;
   characters: string[];
   actions: { col: number; type: string; note: string }[];
 } {
   const lines = text.split(/\r?\n/);
   let title = "スキル回し";
+  let ultimateReady = false;
+  let description = "";
   const characters: string[] = [];
   const actions: { col: number; type: string; note: string }[] = [];
 
@@ -83,6 +93,14 @@ export function fromText(text: string): {
     const titleMatch = line.match(/^#\s+(.*)$/);
     if (titleMatch) {
       title = titleMatch[1].trim() || title;
+      continue;
+    }
+    if (line.startsWith("前提:")) {
+      ultimateReady = /必殺ゲージMAX\s*要/.test(line);
+      continue;
+    }
+    if (line.startsWith("説明:")) {
+      description = line.slice("説明:".length).trim();
       continue;
     }
     if (line.startsWith("編成:")) {
@@ -112,7 +130,7 @@ export function fromText(text: string): {
       });
     }
   }
-  return { title, characters, actions };
+  return { title, ultimateReady, description, characters, actions };
 }
 
 /**

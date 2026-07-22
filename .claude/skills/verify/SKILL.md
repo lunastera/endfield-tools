@@ -52,6 +52,9 @@ const browser = await chromium.launch({
 6b. タブ（`スキル回しを追加` ＋ボタン）で複数のスキル回しを持て、編成・行動はタブごとに独立。
     切り替え・リロードで各タブの内容が保持される
 7. 「編集」「プレビュー」を切り替えられる（プレビューは入力欄が消え読み取り専用）
+7b. タイムライン右側にメタデータ欄（タイトル／前提条件=必殺ゲージMAXチェック／説明）。
+    タイトルはタブ名に反映、プレビューでは読み取り表示。JSON/テキスト/共有にも含む
+    （TimelineState.ultimateReady / description）
 8. JSON / PNG はダウンロードできる（`page.on("download")` で捕捉。
    PNG は先頭 4 バイトが 89 50 4E 47）。テキストはクリップボードにコピー
    （context に `clipboard-read/write` 権限を付与し `navigator.clipboard.readText()` で確認）

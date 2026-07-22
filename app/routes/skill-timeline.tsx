@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { CharacterPicker } from "~/components/skill-timeline/CharacterPicker";
+import { MetadataPanel } from "~/components/skill-timeline/MetadataPanel";
 import {
   TimelineEditor,
   type TimelineMode,
@@ -698,23 +699,6 @@ export default function SkillTimeline() {
                 ))}
               </div>
 
-              {mode === "edit" ? (
-                <label className="flex items-center gap-2 text-sm">
-                  <span className="text-fg-dim">タイトル</span>
-                  <input
-                    value={state.title}
-                    onChange={(e) =>
-                      setState((s) => ({ ...s, title: e.target.value }))
-                    }
-                    className="clip-corner-sm border border-line bg-ink px-3 py-1 outline-none focus:border-ef-yellow-dim"
-                  />
-                </label>
-              ) : (
-                <h2 className="text-lg font-bold">
-                  {state.title || "スキル回し"}
-                </h2>
-              )}
-
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 <span className="text-xs text-fg-dim">出力（このタブ）:</span>
                 <button
@@ -751,27 +735,34 @@ export default function SkillTimeline() {
               </div>
             </div>
 
-            <TimelineEditor
-              state={state}
-              mode={mode}
-              onAddAction={(col) => setState((s) => addAction(s, col))}
-              onInsertAction={(atIndex, col) =>
-                setState((s) => insertActionAt(s, atIndex, col))
-              }
-              onUpdateAction={(id, patch) =>
-                setState((s) => updateAction(s, id, patch))
-              }
-              onDeleteAction={(id) => setState((s) => deleteAction(s, id))}
-              onReorder={(id, index, col) =>
-                setState((s) => moveActionTo(s, id, index, col))
-              }
-              onMoveCharacter={(from, to) =>
-                setState((s) => moveCharacter(s, from, to))
-              }
-              onRemoveCharacter={(col) =>
-                setState((s) => removeCharacter(s, col))
-              }
-            />
+            <div className="grid items-start gap-4 lg:grid-cols-[max-content_minmax(16rem,1fr)]">
+              <TimelineEditor
+                state={state}
+                mode={mode}
+                onAddAction={(col) => setState((s) => addAction(s, col))}
+                onInsertAction={(atIndex, col) =>
+                  setState((s) => insertActionAt(s, atIndex, col))
+                }
+                onUpdateAction={(id, patch) =>
+                  setState((s) => updateAction(s, id, patch))
+                }
+                onDeleteAction={(id) => setState((s) => deleteAction(s, id))}
+                onReorder={(id, index, col) =>
+                  setState((s) => moveActionTo(s, id, index, col))
+                }
+                onMoveCharacter={(from, to) =>
+                  setState((s) => moveCharacter(s, from, to))
+                }
+                onRemoveCharacter={(col) =>
+                  setState((s) => removeCharacter(s, col))
+                }
+              />
+              <MetadataPanel
+                state={state}
+                mode={mode}
+                onPatch={(patch) => setState((s) => ({ ...s, ...patch }))}
+              />
+            </div>
 
             {mode === "edit" && (
               <div className="flex justify-end">

@@ -14,6 +14,10 @@ export type TimelineAction = {
 export type TimelineState = {
   version: typeof TIMELINE_VERSION;
   title: string;
+  /** 前提条件: 必殺ゲージMAXを前提とするか */
+  ultimateReady: boolean;
+  /** このスキル回しの説明・メモ */
+  description: string;
   /** 選択中キャラの id（順に列になる。最大 LAYOUT.maxCharacters） */
   characters: string[];
   actions: TimelineAction[];
@@ -29,6 +33,8 @@ export function createEmptyState(): TimelineState {
   return {
     version: TIMELINE_VERSION,
     title: "スキル回し",
+    ultimateReady: false,
+    description: "",
     characters: [],
     actions: [],
   };
@@ -192,6 +198,9 @@ export function normalizeState(
   if (typeof input !== "object" || input === null) return null;
   const raw = input as Record<string, unknown>;
   const title = typeof raw.title === "string" ? raw.title : "スキル回し";
+  const ultimateReady = raw.ultimateReady === true;
+  const description =
+    typeof raw.description === "string" ? raw.description : "";
   const characters = Array.isArray(raw.characters)
     ? raw.characters
         .filter(
@@ -235,6 +244,8 @@ export function normalizeState(
   return {
     version: TIMELINE_VERSION,
     title,
+    ultimateReady,
+    description,
     characters: uniqueCharacters,
     actions,
   };

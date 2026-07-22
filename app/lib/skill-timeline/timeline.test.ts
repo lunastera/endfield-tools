@@ -224,6 +224,20 @@ describe("normalizeState", () => {
     expect(restored?.actions[1].type).toBe("combo");
   });
 
+  it("メタデータ（前提条件・説明）の既定値と復元", () => {
+    // 既定
+    const empty = createEmptyState();
+    expect(empty.ultimateReady).toBe(false);
+    expect(empty.description).toBe("");
+    // 未指定は既定に、指定は保持
+    const restored = normalizeState(
+      { title: "t", ultimateReady: true, description: "説明文", characters: [] },
+      isKnown,
+    );
+    expect(restored?.ultimateReady).toBe(true);
+    expect(restored?.description).toBe("説明文");
+  });
+
   it("オブジェクト以外は null を返す", () => {
     expect(normalizeState("nope", isKnown)).toBeNull();
     expect(normalizeState(null, isKnown)).toBeNull();
@@ -324,8 +338,12 @@ describe("share（URL共有）", () => {
     s = addAction(s, 1, "ultimate");
     s = updateAction(s, s.actions[0].id, { note: "開幕 & 連携＜重要＞" });
 
+    s = { ...s, ultimateReady: true, description: "共有メタ＜テスト＞" };
+
     const restored = normalizeState(decodeShare(encodeShare(s)), isKnown);
     expect(restored?.title).toBe(s.title);
+    expect(restored?.ultimateReady).toBe(true);
+    expect(restored?.description).toBe("共有メタ＜テスト＞");
     expect(restored?.characters).toEqual(["mifu", "ember"]);
     expect(restored?.actions.map((a) => [a.col, a.type, a.note])).toEqual(
       s.actions.map((a) => [a.col, a.type, a.note]),
@@ -392,6 +410,20 @@ describe("import", () => {
       [0, "skill", "開幕"],
       [1, "combo", ""],
     ]);
+  });
+
+  it("メタデータが JSON / テキストの往復で保たれる", () => {
+    let s = addCharacter(createEmptyState(), "mifu");
+    s = { ...s, ultimateReady: true, description: "開幕に必殺を使う" };
+    s = addAction(s, 0, "skill");
+
+    const viaJson = normalizeState(parseImport(toJson(s)), isKnown);
+    expect(viaJson?.ultimateReady).toBe(true);
+    expect(viaJson?.description).toBe("開幕に必殺を使う");
+
+    const viaText = normalizeState(parseImport(toText(s)), isKnown);
+    expect(viaText?.ultimateReady).toBe(true);
+    expect(viaText?.description).toBe("開幕に必殺を使う");
   });
 
   it("parseImport は JSON を優先し、失敗時はテキストとして扱う", () => {
