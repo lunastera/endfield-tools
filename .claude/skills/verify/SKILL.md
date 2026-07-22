@@ -57,12 +57,19 @@ const browser = await chromium.launch({
    （context に `clipboard-read/write` 権限を付与し `navigator.clipboard.readText()` で確認）
 9. リロードしても localStorage から編成・行動が復元される（自動保存は全タブ、
    キー `endfield-tools:skill-timeline`）
-9b. 「現在のタブを保存」でタブ単位の名前付き保存（別キー
-    `endfield-tools:skill-timeline:saves`）。「読込」は新しいタブとして開く。
-    保存済みは削除・上書きでき、リロードで残る
-9c. 「URLで共有」でアクティブタブを `#s=<base64url>` に載せた共有 URL を生成しコピー。
-    別セッション（localStorage 空）でその URL を開くと内容が復元され、ハッシュは消える
-    （share.ts: encodeShare/decodeShare の往復。日本語メモは UTF-8→base64url）
+9b. 保存・共有・入出力はヘッダー「保存・共有・入出力」の折りたたみパネル（`#data-panel`、
+    初期は畳んだ状態）にまとめてある。展開すると「セッション・共有（全タブ）」
+    「保存（タブ単位）」「読み込み（インポート）」のグループが並ぶ。エディタ行には
+    「出力（このタブ）: JSON / PNG / テキストをコピー」のみ
+9c. タブ単位の保存（`:saves`）＝「現在のタブを保存」→「読込」は新タブ。削除・上書き可・リロードで残る。
+    セッション（`:session`）＝「セッションを保存」で復元有効化、「復元」は全タブ上書き
+    （中身があれば確認ダイアログ1回）。「全タブをURLで共有」もこのパネル内。
+    ※ 共有 URL/セッション復元の confirm は effect/ハンドラ本体で1回だけ呼ぶ
+    （setState updater 内で呼ぶと複数回発火する）
+9d. 「全タブをURLで共有」は `#w=...` で全タブを載せ、開くと全タブを上書き。
+    既存タブがある状態（localStorage を seed して新規ロード）では上書き確認ダイアログが出る。
+    ※ Playwright で既存あり検証は addInitScript で localStorage を仕込んで URL を新規ロードする
+    （同一ページで hash だけ変えても再読み込みされず effect が走らない）
 10. インポート: 「ファイル（JSON / テキスト）」で `input[type=file]` に .json/.txt を
     `setInputFiles`、または「クリップボードから」。JSON 優先・失敗時はテキスト解析。
     中身が空になるデータ（無効）は失敗扱いで既存を上書きしない

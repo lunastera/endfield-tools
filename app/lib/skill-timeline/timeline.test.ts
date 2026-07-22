@@ -4,8 +4,10 @@ import { fromText, parseImport, toJson, toSvg, toText } from "./export";
 import {
   buildShareUrl,
   decodeShare,
+  decodeWorkspaceShare,
   encodeShare,
-  extractShareParam,
+  encodeWorkspaceShare,
+  extractShare,
 } from "./share";
 import {
   addAction,
@@ -330,12 +332,42 @@ describe("share（URL共有）", () => {
     );
   });
 
-  it("buildShareUrl / extractShareParam が対応する", () => {
+  it("buildShareUrl / extractShare が対応する（タブ=s / 全タブ=w）", () => {
     const encoded = encodeShare(addCharacter(createEmptyState(), "mifu"));
     const url = buildShareUrl("https://example.com/app/#s=old", encoded);
     expect(url).toBe(`https://example.com/app/#s=${encoded}`);
-    expect(extractShareParam(new URL(url).hash)).toBe(encoded);
-    expect(extractShareParam("#foo=1")).toBeNull();
+    expect(extractShare(new URL(url).hash)).toEqual({
+      kind: "tab",
+      value: encoded,
+    });
+
+    const wUrl = buildShareUrl("https://example.com/app/", "ABC", "w");
+    expect(extractShare(new URL(wUrl).hash)).toEqual({
+      kind: "workspace",
+      value: "ABC",
+    });
+    // w が優先される
+    expect(extractShare("#s=aaa&w=bbb")?.kind).toBe("workspace");
+    expect(extractShare("#foo=1")).toBeNull();
+  });
+
+  it("全タブ共有は encode→decode→normalizeWorkspace で保たれる", () => {
+    let w = createEmptyWorkspace();
+    w = updateActiveTab(w, (s) => addCharacter(s, "mifu"));
+    w = addTab(w);
+    w = updateActiveTab(w, (s) =>
+      addAction(addCharacter(s, "ember"), 0, "combo"),
+    );
+
+    const restored = normalizeWorkspace(
+      decodeWorkspaceShare(encodeWorkspaceShare(w)),
+      isKnown,
+    );
+    expect(restored?.tabs).toHaveLength(2);
+    expect(restored?.activeIndex).toBe(1);
+    expect(restored?.tabs[0].characters).toEqual(["mifu"]);
+    expect(restored?.tabs[1].characters).toEqual(["ember"]);
+    expect(restored?.tabs[1].actions[0].type).toBe("combo");
   });
 
   it("不正な共有文字列は例外になる", () => {

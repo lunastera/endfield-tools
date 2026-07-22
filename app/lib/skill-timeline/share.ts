@@ -1,8 +1,10 @@
 import type { ActionTypeId } from "./data";
 
 /**
- * タイムライン1タブ分を URL 共有用の文字列にエンコード/デコードする。
+ * タイムラインを URL 共有用の文字列にエンコード/デコードする。
  * バックエンドが無いため、データ自体を URL ハッシュに載せて共有する。
+ * - 1タブ分: `#s=...`（開いた側は新しいタブとして追加）
+ * - 全タブ分: `#w=...`（開いた側は全タブを上書き）
  */
 
 const TYPE_CODE: Record<ActionTypeId, string> = {
@@ -32,33 +34,29 @@ function fromBase64Url(s: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-type ShareInput = {
+type TabInput = {
   title: string;
   characters: string[];
   actions: { col: number; type: ActionTypeId; note: string }[];
 };
 
-/** タブを共有用の短い文字列にする */
-export function encodeShare(state: ShareInput): string {
-  const payload = {
-    v: 1,
+type RawTab = {
+  title?: string;
+  characters: string[];
+  actions: { col: number; type: string; note: string }[];
+};
+
+/** タブを共有ペイロード（配列で短く）にする */
+function tabToPayload(state: TabInput) {
+  return {
     t: state.title,
     c: state.characters,
     a: state.actions.map((a) => [a.col, TYPE_CODE[a.type] ?? "s", a.note]),
   };
-  return toBase64Url(JSON.stringify(payload));
 }
 
-/**
- * 共有文字列を raw なオブジェクトに戻す（normalizeState に渡して検証する想定）。
- * 不正な入力では例外を投げる。
- */
-export function decodeShare(encoded: string): {
-  title?: string;
-  characters: string[];
-  actions: { col: number; type: string; note: string }[];
-} {
-  const p = JSON.parse(fromBase64Url(encoded)) as Record<string, unknown>;
+/** 共有ペイロードを normalizeState に渡せる raw オブジェクトに戻す */
+function payloadToRaw(p: Record<string, unknown>): RawTab {
   const actions = Array.isArray(p.a)
     ? p.a.map((row) => {
         const [col, code, note] = row as [unknown, unknown, unknown];
@@ -78,13 +76,57 @@ export function decodeShare(encoded: string): {
   };
 }
 
-/** 共有 URL を組み立てる（現在の URL のハッシュ以降を差し替える） */
-export function buildShareUrl(baseHref: string, encoded: string): string {
-  return `${baseHref.split("#")[0]}#s=${encoded}`;
+/** タブ1つを共有文字列にする */
+export function encodeShare(state: TabInput): string {
+  return toBase64Url(JSON.stringify({ v: 1, ...tabToPayload(state) }));
 }
 
-/** URL ハッシュから共有文字列を取り出す（無ければ null） */
-export function extractShareParam(hash: string): string | null {
-  const m = hash.match(/[#&]s=([^&]+)/);
-  return m ? m[1] : null;
+/** タブ共有文字列を raw オブジェクトに戻す（normalizeState に渡す。不正なら例外）。 */
+export function decodeShare(encoded: string): RawTab {
+  return payloadToRaw(
+    JSON.parse(fromBase64Url(encoded)) as Record<string, unknown>,
+  );
+}
+
+type WorkspaceInput = { activeIndex: number; tabs: TabInput[] };
+
+/** 全タブ（ワークスペース）を共有文字列にする */
+export function encodeWorkspaceShare(w: WorkspaceInput): string {
+  return toBase64Url(
+    JSON.stringify({ v: 1, i: w.activeIndex, ts: w.tabs.map(tabToPayload) }),
+  );
+}
+
+/** ワークスペース共有文字列を normalizeWorkspace に渡せる raw に戻す（不正なら例外）。 */
+export function decodeWorkspaceShare(encoded: string): {
+  activeIndex: number;
+  tabs: RawTab[];
+} {
+  const p = JSON.parse(fromBase64Url(encoded)) as Record<string, unknown>;
+  return {
+    activeIndex: typeof p.i === "number" ? p.i : 0,
+    tabs: Array.isArray(p.ts)
+      ? p.ts.map((t) => payloadToRaw(t as Record<string, unknown>))
+      : [],
+  };
+}
+
+/** 共有 URL を組み立てる（現在の URL のハッシュ以降を差し替える） */
+export function buildShareUrl(
+  baseHref: string,
+  encoded: string,
+  key: "s" | "w" = "s",
+): string {
+  return `${baseHref.split("#")[0]}#${key}=${encoded}`;
+}
+
+/** URL ハッシュから共有文字列を取り出す。全タブ(w)を優先する。 */
+export function extractShare(
+  hash: string,
+): { kind: "tab" | "workspace"; value: string } | null {
+  const w = hash.match(/[#&]w=([^&]+)/);
+  if (w) return { kind: "workspace", value: w[1] };
+  const s = hash.match(/[#&]s=([^&]+)/);
+  if (s) return { kind: "tab", value: s[1] };
+  return null;
 }
