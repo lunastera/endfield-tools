@@ -33,6 +33,7 @@ import {
   insertActionAt,
   moveActionTo,
   moveCharacter,
+  moveTab,
   normalizeState,
   normalizeWorkspace,
   removeCharacter,
@@ -130,6 +131,7 @@ export default function SkillTimeline() {
     loadSessionSavedAt,
   );
   const [dataOpen, setDataOpen] = useState(false);
+  const [dragTabFrom, setDragTabFrom] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // 常に最新の workspace を参照するための ref（マウント時 effect 用）。
   const workspaceRef = useRef(workspace);
@@ -452,10 +454,33 @@ export default function SkillTimeline() {
           {workspace.tabs.map((tab, i) => {
             const activeTab = i === workspace.activeIndex;
             return (
+              // biome-ignore lint/a11y/noStaticElementInteractions: タブ並べ替えの D&D
               <div
                 // biome-ignore lint/suspicious/noArrayIndexKey: タブは位置で識別する
                 key={i}
+                draggable={editingTab !== i}
+                onDragStart={(e) => {
+                  setDragTabFrom(i);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(i));
+                }}
+                onDragEnd={() => setDragTabFrom(null)}
+                onDragOver={
+                  dragTabFrom !== null ? (e) => e.preventDefault() : undefined
+                }
+                onDrop={
+                  dragTabFrom !== null
+                    ? (e) => {
+                        e.preventDefault();
+                        setWorkspace((w) => moveTab(w, dragTabFrom, i));
+                        setDragTabFrom(null);
+                      }
+                    : undefined
+                }
+                title={editingTab === i ? undefined : "ドラッグで並べ替え"}
                 className={`clip-corner-sm flex items-center gap-1 border border-b-0 py-1 pr-1 pl-3 ${
+                  editingTab === i ? "" : "cursor-grab active:cursor-grabbing"
+                } ${dragTabFrom === i ? "opacity-50" : ""} ${
                   activeTab
                     ? "border-line bg-panel text-fg"
                     : "border-transparent bg-panel-2/50 text-fg-dim hover:text-fg"

@@ -302,6 +302,24 @@ export function selectTab(w: Workspace, index: number): Workspace {
   return { ...w, activeIndex: index };
 }
 
+/** タブを並べ替える。アクティブなタブはそのまま追従する。 */
+export function moveTab(w: Workspace, from: number, to: number): Workspace {
+  const len = w.tabs.length;
+  if (from < 0 || from >= len) return w;
+  const clampedTo = Math.max(0, Math.min(to, len - 1));
+  if (from === clampedTo) return w;
+  const activeTab = w.tabs[w.activeIndex];
+  const tabs = [...w.tabs];
+  const [moved] = tabs.splice(from, 1);
+  tabs.splice(clampedTo, 0, moved);
+  const activeIndex = tabs.indexOf(activeTab);
+  return {
+    ...w,
+    tabs,
+    activeIndex: activeIndex < 0 ? w.activeIndex : activeIndex,
+  };
+}
+
 /**
  * 保存データを Workspace に正規化する。
  * 新形式（{tabs, activeIndex}）と、旧形式（単一 TimelineState）の両方を受け付ける。

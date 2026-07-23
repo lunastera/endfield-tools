@@ -21,6 +21,7 @@ import {
   moveActionTo,
   moveActionToIndex,
   moveCharacter,
+  moveTab,
   normalizeState,
   normalizeWorkspace,
   removeCharacter,
@@ -308,6 +309,25 @@ describe("workspace（タブ）", () => {
     w = removeTab(w, 0);
     expect(w.tabs).toHaveLength(1); // 空タブが残る
     expect(w.activeIndex).toBe(0);
+  });
+
+  it("moveTab で並べ替えてもアクティブタブが追従する", () => {
+    let w = createEmptyWorkspace();
+    w = updateActiveTab(w, (s) => ({ ...s, title: "A" }));
+    w = addTab(w);
+    w = updateActiveTab(w, (s) => ({ ...s, title: "B" }));
+    w = addTab(w);
+    w = updateActiveTab(w, (s) => ({ ...s, title: "C" }));
+    // タブ: [A, B, C], アクティブ = C(2)
+
+    // A(0) を末尾(2)へ → [B, C, A]、アクティブは C のまま
+    w = moveTab(w, 0, 2);
+    expect(w.tabs.map((t) => t.title)).toEqual(["B", "C", "A"]);
+    expect(w.tabs[w.activeIndex].title).toBe("C");
+
+    // 範囲外・同一は無変化
+    expect(moveTab(w, 0, 0)).toBe(w);
+    expect(moveTab(w, 9, 0)).toBe(w);
   });
 
   it("normalizeWorkspace は旧形式（単一タイムライン）を1タブに移行する", () => {
