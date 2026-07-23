@@ -231,7 +231,12 @@ describe("normalizeState", () => {
     expect(empty.description).toBe("");
     // 未指定は既定に、指定は保持
     const restored = normalizeState(
-      { title: "t", ultimateReady: true, description: "説明文", characters: [] },
+      {
+        title: "t",
+        ultimateReady: true,
+        description: "説明文",
+        characters: [],
+      },
       isKnown,
     );
     expect(restored?.ultimateReady).toBe(true);

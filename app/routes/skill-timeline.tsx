@@ -735,7 +735,7 @@ export default function SkillTimeline() {
               </div>
             </div>
 
-            <div className="grid items-start gap-4 lg:grid-cols-[max-content_minmax(16rem,1fr)]">
+            <div className="flex flex-col items-start gap-4 lg:flex-row">
               <TimelineEditor
                 state={state}
                 mode={mode}
@@ -757,11 +757,13 @@ export default function SkillTimeline() {
                   setState((s) => removeCharacter(s, col))
                 }
               />
-              <MetadataPanel
-                state={state}
-                mode={mode}
-                onPatch={(patch) => setState((s) => ({ ...s, ...patch }))}
-              />
+              <div className="w-full min-w-0 lg:min-w-64 lg:flex-1">
+                <MetadataPanel
+                  state={state}
+                  mode={mode}
+                  onPatch={(patch) => setState((s) => ({ ...s, ...patch }))}
+                />
+              </div>
             </div>
 
             {mode === "edit" && (

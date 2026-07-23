@@ -264,7 +264,7 @@ export function TimelineEditor({
   };
 
   return (
-    <div className="clip-corner max-h-[72vh] overflow-auto border border-line bg-panel/40">
+    <div className="clip-corner max-h-[72vh] w-fit min-w-0 max-w-full overflow-auto border border-line bg-panel/40">
       <div style={{ width, position: "relative" }}>
         {/* 追従ヘッダー: キャラ部分（編集モードは左右にD&Dで組み替え可能） */}
         <div
